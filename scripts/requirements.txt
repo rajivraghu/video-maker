@@ -1,0 +1,27 @@
+# Video Maker - Python Dependencies
+
+# Core transcription engine
+faster-whisper>=1.0.0
+
+# Note: The following are automatically installed with faster-whisper:
+# - ctranslate2
+# - onnxruntime
+# - tokenizers
+# - huggingface-hub
+
+# System Requirements:
+# - Python 3.8 or higher
+# - FFmpeg (must be installed separately)
+#
+# Install FFmpeg:
+#   Ubuntu/Debian: sudo apt install ffmpeg
+#   MacOS: brew install ffmpeg
+#   Windows: Download from https://ffmpeg.org/
+
+# Optional: For GPU acceleration (much faster)
+# Uncomment if you have NVIDIA GPU with CUDA:
+# torch>=2.0.0
+# torchaudio>=2.0.0
+
+# Installation:
+# pip install -r requirements.txt

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Maker - AI-Powered Video Creation</title>
+    <meta name="description" content="Create professional videos from transcripts, audio, and images with AI-powered synchronization">
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M14.7519 11.1679L11.5547 9.03647C10.8901 8.59343 10 9.06982 10 9.86852V14.1315C10 14.9302 10.8901 15.4066 11.5547 14.9635L14.7519 12.8321C15.3457 12.4362 15.3457 11.5638 14.7519 11.1679Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2"/>
+                </svg>
+                <h1>Video Maker</h1>
+            </div>
+            <p class="tagline">Transform your content into stunning videos</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section">
+                <h2 class="section-title">
+                    <span class="step-badge">Step 1</span>
+                    Upload Your Content
+                </h2>
+
+                <div class="upload-grid">
+                    <!-- Transcript Upload -->
+                    <div class="upload-card">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>Transcript</h3>
+                        </div>
+                        <p class="upload-description">Upload your script file (.txt)</p>
+                        <input type="file" id="transcriptFile" accept=".txt" class="file-input">
+                        <label for="transcriptFile" class="file-label">
+                            <span class="file-label-text">Choose File</span>
+                        </label>
+                        <div class="file-status" id="transcriptStatus"></div>
+                    </div>
+
+                    <!-- Audio Upload -->
+                    <div class="upload-card">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 18V5l12-2v13M9 18c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zm12-2c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>Audio</h3>
+                        </div>
+                        <p class="upload-description">Upload your narration (.mp3)</p>
+                        <input type="file" id="audioFile" accept=".mp3,.wav,.m4a" class="file-input">
+                        <label for="audioFile" class="file-label">
+                            <span class="file-label-text">Choose File</span>
+                        </label>
+                        <div class="file-status" id="audioStatus"></div>
+                    </div>
+
+                    <!-- Images Upload -->
+                    <div class="upload-card upload-card-wide">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>Images</h3>
+                        </div>
+                        <p class="upload-description">Upload scene images (.png, .jpg) - numbered files recommended</p>
+                        <input type="file" id="imageFiles" accept=".png,.jpg,.jpeg" multiple class="file-input">
+                        <label for="imageFiles" class="file-label">
+                            <span class="file-label-text">Choose Files</span>
+                        </label>
+                        <div class="file-status" id="imagesStatus"></div>
+                        <div class="image-preview-container" id="imagePreviewContainer"></div>
+                    </div>
+
+                    <!-- Videos Upload (Optional) -->
+                    <div class="upload-card upload-card-wide">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>Videos (Optional)</h3>
+                        </div>
+                        <p class="upload-description">Upload video clips (.mp4) for specific scenes - configure below after uploading transcript</p>
+                        <input type="file" id="videoFiles" accept=".mp4,.mov,.avi" multiple class="file-input">
+                        <label for="videoFiles" class="file-label">
+                            <span class="file-label-text">Choose Files</span>
+                        </label>
+                        <div class="file-status" id="videosStatus"></div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="clearBtn" class="btn btn-secondary">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Clear All
+                    </button>
+                    <button id="generateBtn" class="btn btn-primary" disabled>
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14.7519 11.1679L11.5547 9.03647C10.8901 8.59343 10 9.06982 10 9.86852V14.1315C10 14.9302 10.8901 15.4066 11.5547 14.9635L14.7519 12.8321C15.3457 12.4362 15.3457 11.5638 14.7519 11.1679Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Generate Video
+                    </button>
+                </div>
+            </section>
+
+            <!-- Scene Configuration Section -->
+            <section class="scene-config-section" id="sceneConfigSection" style="display: none;">
+                <h2 class="section-title">
+                    <span class="step-badge">Step 1.5</span>
+                    Configure Scenes (Optional)
+                </h2>
+
+                <div class="scene-info-box">
+                    <svg class="info-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div>
+                        <strong>Mix Images & Videos:</strong> By default, all scenes use images. Toggle any scene to use a video clip instead. The video will play with your narration audio. When you click "Generate Video", all your scene selections will be included automatically.
+                    </div>
+                </div>
+
+                <div id="scenesContainer" class="scenes-grid"></div>
+
+                <div class="scene-actions">
+                    <button id="resetScenesBtn" class="btn btn-secondary">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Reset All to Images
+                    </button>
+                    <button id="saveSceneConfigBtn" class="btn btn-secondary" style="display: none;">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Save Config (Advanced)
+                    </button>
+                </div>
+                <div style="text-align: center; margin-top: 1rem; color: var(--text-secondary); font-size: 0.9rem;">
+                    After configuring scenes, scroll down and click "Generate Video"
+                </div>
+            </section>
+
+            <!-- Output Section -->
+            <section class="output-section" id="outputSection" style="display: none;">
+                <h2 class="section-title">
+                    <span class="step-badge">Step 2</span>
+                    Processing
+                </h2>
+
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">Initializing...</div>
+                </div>
+
+                <!-- Logs -->
+                <div class="logs-container">
+                    <div class="logs-header">
+                        <h3>Output Logs</h3>
+                        <button id="clearLogsBtn" class="btn-icon-only">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="logs-content" id="logsContent">
+                        <div class="log-line">Ready to process...</div>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="result-container" id="resultContainer" style="display: none;">
+                    <div class="result-success">
+                        <svg class="result-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <h3>Video Created Successfully!</h3>
+                        <p>Your video is ready to download</p>
+                        <a id="downloadLink" class="btn btn-download" download>
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Download Video
+                        </a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Made with ❤️ using AI-powered video generation</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

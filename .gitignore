@@ -1,0 +1,70 @@
+# Video Maker - Git Ignore File
+
+# Output files (generated videos)
+output/*.mp4
+output/*.srt
+output/*.json
+output/*.txt
+
+# Input files (user's personal content)
+input/audio.mp3
+input/audio.wav
+input/audio.m4a
+input/transcript.txt
+input/images/*.png
+input/images/*.jpg
+input/images/*.jpeg
+
+# Keep directory structure
+!input/images/PLACE_IMAGES_HERE.txt
+!output/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+concat_list.txt
+
+# Model cache
+.cache/
+models/
+
+# Logs
+*.log
