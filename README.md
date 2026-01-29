@@ -9,7 +9,7 @@ Now you can mix both **images** and **video clips** in the same project! Use ima
 ### Quick Start (Web UI)
 ```bash
 ./start.sh
-# Open http://localhost:5000
+# Open http://localhost:8080
 ```
 
 See [README_WEB_UI.md](README_WEB_UI.md) for the full web interface guide.

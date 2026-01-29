@@ -29,7 +29,7 @@ Make sure you have **ffmpeg** installed:
 python server.py
 ```
 
-Open your browser to: **http://localhost:5000**
+Open your browser to: **http://localhost:8080**
 
 ### 3. Create Your Video
 

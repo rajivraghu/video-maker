@@ -26,7 +26,7 @@ fi
 echo "🚀 Starting Video Maker Web Server..."
 echo ""
 echo "📍 Access the application at:"
-echo "   http://localhost:5001"
+echo "   http://localhost:8081"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo "============================================================"

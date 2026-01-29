@@ -38,7 +38,7 @@ A complete, production-ready web application for the Video Maker project with a 
    - SSE streaming for real-time logs
    - Download endpoint
    - CORS enabled
-   - Runs on port 5001
+   - Runs on port 8081
 
 ### Supporting Files
 5. **`requirements.txt`** (47 B)
@@ -125,7 +125,7 @@ cd video_maker/webapp
 ```
 
 ### Access the App
-Open browser to: **http://localhost:5001**
+Open browser to: **http://localhost:8081**
 
 ### Upload Files
 1. Transcript (.txt)

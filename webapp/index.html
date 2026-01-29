@@ -22,6 +22,23 @@
                 <h1>Video Maker</h1>
             </div>
             <p class="tagline">Transform your content into stunning videos</p>
+
+            <!-- Navigation Menu -->
+            <nav class="nav-menu">
+                <button class="nav-btn active" data-page="video-maker">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M14.7519 11.1679L11.5547 9.03647C10.8901 8.59343 10 9.06982 10 9.86852V14.1315C10 14.9302 10.8901 15.4066 11.5547 14.9635L14.7519 12.8321C15.3457 12.4362 15.3457 11.5638 14.7519 11.1679Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2"/>
+                    </svg>
+                    Video Maker
+                </button>
+                <button class="nav-btn" data-page="regional-mix">
+                    <svg class="nav-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Regional Mix
+                </button>
+            </nav>
         </header>
 
         <!-- Main Content -->
@@ -98,6 +115,7 @@
                         </label>
                         <div class="file-status" id="videosStatus"></div>
                     </div>
+
                 </div>
 
                 <!-- Action Buttons -->
@@ -194,6 +212,134 @@
                         <h3>Video Created Successfully!</h3>
                         <p>Your video is ready to download</p>
                         <a id="downloadLink" class="btn btn-download" download>
+                            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            Download Video
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Regional Mix Section -->
+            <section class="regional-mix-section" id="regionalMixSection" style="display: none;">
+                <h2 class="section-title">
+                    <span class="step-badge">1</span>
+                    Regional Mix - Upload Content
+                </h2>
+
+                <div class="regional-mix-info-box">
+                    <svg class="info-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    <div>
+                        <strong>How it works:</strong> Upload numbered images/videos (1.png, 2.mp4, etc.) and matching audio files (1.mp3, 2.mp3, etc.). Each visual will be paired with its corresponding audio track. Videos will be trimmed to match audio duration (video audio is muted). You can also change images or switch to videos in the preview below.
+                    </div>
+                </div>
+
+                <div class="upload-grid">
+                    <!-- Images/Videos Upload -->
+                    <div class="upload-card">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>Images / Videos</h3>
+                        </div>
+                        <p class="upload-description">Upload numbered files (1.png, 2.mp4, 1.jpg, 2.mov, etc.)</p>
+                        <input type="file" id="rmImageFiles" accept=".png,.jpg,.jpeg,.mp4,.mov,.avi,.webm" multiple class="file-input">
+                        <label for="rmImageFiles" class="file-label">
+                            <span class="file-label-text">Choose Images/Videos</span>
+                        </label>
+                        <div class="file-status" id="rmImagesStatus"></div>
+                    </div>
+
+                    <!-- Audio Upload -->
+                    <div class="upload-card">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 18V5l12-2v13M9 18c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3zm12-2c0 1.657-1.343 3-3 3s-3-1.343-3-3 1.343-3 3-3 3 1.343 3 3z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                            <h3>Audio Tracks</h3>
+                        </div>
+                        <p class="upload-description">Upload numbered audio files (1.mp3, 2.mp3, 1.wav, 2.wav, etc.)</p>
+                        <input type="file" id="rmAudioFiles" accept=".mp3,.wav" multiple class="file-input">
+                        <label for="rmAudioFiles" class="file-label">
+                            <span class="file-label-text">Choose Audio Files</span>
+                        </label>
+                        <div class="file-status" id="rmAudioStatus"></div>
+                    </div>
+                </div>
+
+                <!-- Preview Section -->
+                <div class="rm-preview-section" id="rmPreviewSection" style="display: none;">
+                    <h3 class="preview-title">Preview - Matched Pairs</h3>
+                    <div class="rm-preview-grid" id="rmPreviewGrid"></div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="rmClearBtn" class="btn btn-secondary">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Clear All
+                    </button>
+                    <button id="rmClearServerBtn" class="btn btn-warning">
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        Clear Server Files
+                    </button>
+                    <button id="rmGenerateBtn" class="btn btn-primary" disabled>
+                        <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M14.7519 11.1679L11.5547 9.03647C10.8901 8.59343 10 9.06982 10 9.86852V14.1315C10 14.9302 10.8901 15.4066 11.5547 14.9635L14.7519 12.8321C15.3457 12.4362 15.3457 11.5638 14.7519 11.1679Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <rect x="2" y="2" width="20" height="20" rx="4" stroke="currentColor" stroke-width="2"/>
+                        </svg>
+                        Make Video
+                    </button>
+                </div>
+            </section>
+
+            <!-- Regional Mix Output Section -->
+            <section class="output-section" id="rmOutputSection" style="display: none;">
+                <h2 class="section-title">
+                    <span class="step-badge">2</span>
+                    Processing
+                </h2>
+
+                <!-- Progress Bar -->
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="rmProgressFill"></div>
+                    </div>
+                    <div class="progress-text" id="rmProgressText">Initializing...</div>
+                </div>
+
+                <!-- Logs -->
+                <div class="logs-container">
+                    <div class="logs-header">
+                        <h3>Output Logs</h3>
+                        <button id="rmClearLogsBtn" class="btn-icon-only">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div class="logs-content" id="rmLogsContent">
+                        <div class="log-line">Ready to process...</div>
+                    </div>
+                </div>
+
+                <!-- Result -->
+                <div class="result-container" id="rmResultContainer" style="display: none;">
+                    <div class="result-success">
+                        <svg class="result-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                        <h3>Video Created Successfully!</h3>
+                        <p>Your regional mix video is ready to download</p>
+                        <a id="rmDownloadLink" class="btn btn-download" download>
                             <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                 <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>

@@ -43,6 +43,7 @@ OUTPUT_HEIGHT = None
 
 # Transition Settings
 TRANSITION_DURATION = 0.5       # Duration of crossfade between scenes in seconds
+TRANSITION_SOUND_DURATION = 1.0 # Duration of transition sound effect in seconds
 
 # FFmpeg path - use ffmpeg-full if available (has libass support for captions)
 FFMPEG_FULL_PATH = "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
@@ -64,6 +65,7 @@ AUDIO_FILE = INPUT_DIR / "audio.mp3"
 IMAGES_DIR = INPUT_DIR / "images"
 VIDEOS_DIR = INPUT_DIR / "videos"
 SCENE_CONFIG_FILE = INPUT_DIR / "scene_config.json"
+TRANSITION_SOUNDS_DIR = INPUT_DIR / "transition_sounds"
 
 OUTPUT_VIDEO = OUTPUT_DIR / "final_video.mp4"
 SRT_FILE = OUTPUT_DIR / "subtitles.srt"
@@ -733,6 +735,102 @@ def main():
         print("❌ Error creating video:")
         print(result.stderr[-1000:] if result.stderr else "Unknown error")
         sys.exit(1)
+
+    # Check for per-scene transition sounds and mix them at appropriate times
+    if TRANSITION_SOUNDS_DIR.exists():
+        # Find all transition sound files (named by position: 0.mp3, 1.mp3, etc.)
+        sound_files = list(TRANSITION_SOUNDS_DIR.glob("*.mp3"))
+
+        if sound_files:
+            print("   Mixing per-scene transition sound effects...")
+
+            # Build mapping of position -> (sound_file, timestamp)
+            transition_sounds = []
+            for sound_file in sound_files:
+                try:
+                    position = int(sound_file.stem)  # e.g., "0" from "0.mp3"
+
+                    # Calculate timestamp for this position
+                    if position == 0:
+                        # Intro sound at start of video
+                        timestamp = 0
+                    elif position <= len(adjusted_timings) - 1:
+                        # Sound between scenes: plays at start of scene N (position N)
+                        # Centered around the transition
+                        timestamp = adjusted_timings[position]['start'] - (TRANSITION_SOUND_DURATION / 2)
+                        if timestamp < 0:
+                            timestamp = 0
+                    else:
+                        continue  # Skip invalid positions
+
+                    transition_sounds.append((position, sound_file, timestamp))
+                except ValueError:
+                    continue  # Skip files that aren't numbered
+
+            if transition_sounds:
+                # Sort by position
+                transition_sounds.sort(key=lambda x: x[0])
+                print(f"   Found {len(transition_sounds)} transition sound(s)")
+
+                # Create a temporary video with mixed transition sounds
+                temp_video_with_transitions = OUTPUT_DIR / "temp_video_with_transitions.mp4"
+
+                # Build FFmpeg command with multiple audio inputs
+                # Input 0 = video, Input 1+ = transition sounds
+                cmd = [FFMPEG_PATH, '-y', '-i', str(temp_video)]
+
+                # Add each transition sound as an input
+                for _, sound_file, _ in transition_sounds:
+                    cmd.extend(['-i', str(sound_file)])
+
+                # Build filter complex
+                filter_parts = []
+
+                # Process each transition sound
+                for i, (position, _, timestamp) in enumerate(transition_sounds):
+                    input_idx = i + 1  # Video is input 0
+                    delay_ms = int(timestamp * 1000)
+                    # Trim and delay each sound
+                    filter_parts.append(
+                        f"[{input_idx}:a]atrim=0:{TRANSITION_SOUND_DURATION},"
+                        f"asetpts=PTS-STARTPTS,adelay={delay_ms}|{delay_ms}[trans{i}]"
+                    )
+
+                # Mix all sounds with original audio
+                mix_inputs = "[0:a]" + "".join(f"[trans{i}]" for i in range(len(transition_sounds)))
+                filter_parts.append(
+                    f"{mix_inputs}amix=inputs={len(transition_sounds) + 1}:"
+                    f"duration=first:dropout_transition=0[aout]"
+                )
+
+                filter_complex = ";".join(filter_parts)
+
+                cmd.extend([
+                    '-filter_complex', filter_complex,
+                    '-map', '0:v',
+                    '-map', '[aout]',
+                    '-c:v', 'copy',
+                    '-c:a', 'aac',
+                    '-b:a', AUDIO_BITRATE,
+                    str(temp_video_with_transitions)
+                ])
+
+                result = subprocess.run(cmd, capture_output=True, text=True)
+
+                if result.returncode == 0:
+                    print(f"✓ Added {len(transition_sounds)} transition sound(s)")
+                    # Replace temp_video with the one containing transition sounds
+                    temp_video.unlink()
+                    temp_video_with_transitions.rename(temp_video)
+                else:
+                    print("⚠️  Warning: Could not add transition sounds")
+                    if result.stderr:
+                        error_lines = result.stderr.strip().split('\n')[-3:]
+                        for line in error_lines:
+                            print(f"   {line}")
+                    # Continue without transition sounds
+                    if temp_video_with_transitions.exists():
+                        temp_video_with_transitions.unlink()
 
     # Now burn in the subtitles with word highlighting
     print("   Burning captions into video...")

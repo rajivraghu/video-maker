@@ -1,0 +1,32 @@
+{
+  "scenes": {
+    "1": {
+      "type": "video",
+      "path": "input/videos/1.mp4"
+    },
+    "2": {
+      "type": "video",
+      "path": "input/videos/2.mp4"
+    },
+    "3": {
+      "type": "video",
+      "path": "input/videos/3.mp4"
+    },
+    "4": {
+      "type": "video",
+      "path": "input/videos/4.mp4"
+    },
+    "5": {
+      "type": "video",
+      "path": "input/videos/5.mp4"
+    },
+    "6": {
+      "type": "video",
+      "path": "input/videos/6.mp4"
+    },
+    "7": {
+      "type": "video",
+      "path": "input/videos/7.mp4"
+    }
+  }
+}

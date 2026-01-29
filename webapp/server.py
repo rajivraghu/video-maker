@@ -33,7 +33,8 @@ ALLOWED_EXTENSIONS = {
     'transcript': {'txt'},
     'audio': {'mp3', 'wav', 'm4a'},
     'images': {'png', 'jpg', 'jpeg'},
-    'videos': {'mp4', 'mov', 'avi', 'webm'}
+    'videos': {'mp4', 'mov', 'avi', 'webm'},
+    'transition_sound': {'mp3', 'wav'}
 }
 
 def allowed_file(filename, file_type):
@@ -199,6 +200,24 @@ def generate_video():
             with open(scene_config_path, 'w', encoding='utf-8') as f:
                 json.dump(scene_config, f, indent=2)
 
+        # Handle per-scene transition sound files (optional)
+        transition_sounds_dir = INPUT_DIR / "transition_sounds"
+        transition_sounds_dir.mkdir(exist_ok=True)
+        transition_sounds_saved = []
+
+        # Check for transition sound uploads (format: transition_sound_0, transition_sound_1, etc.)
+        for field_name in request.files:
+            if field_name.startswith('transition_sound_'):
+                position = field_name.replace('transition_sound_', '')
+                sound_file = request.files[field_name]
+
+                if sound_file and sound_file.filename != '':
+                    if allowed_file(sound_file.filename, 'transition_sound'):
+                        # Save with position in filename
+                        sound_path = transition_sounds_dir / f"{position}.mp3"
+                        sound_file.save(str(sound_path))
+                        transition_sounds_saved.append(position)
+
     except Exception as e:
         return Response(
             send_sse_message('error', message=f'Upload error: {str(e)}'),
@@ -216,6 +235,8 @@ def generate_video():
             yield send_sse_message('log', message=f'✓ Saved {image_count} images', level='success')
             if video_count > 0:
                 yield send_sse_message('log', message=f'✓ Saved {video_count} video scene(s)', level='success')
+            if transition_sounds_saved:
+                yield send_sse_message('log', message=f'✓ Saved {len(transition_sounds_saved)} transition sound(s)', level='success')
             yield send_sse_message('progress', percentage=20, message='Files uploaded successfully')
             
             # Run the video creation script
@@ -321,7 +342,7 @@ if __name__ == '__main__':
     print(f"📁 Output Directory: {OUTPUT_DIR}")
     print(f"🔧 Script: {CREATE_VIDEO_SCRIPT}")
     print("=" * 60)
-    print("🚀 Starting server on http://localhost:5001")
+    print("🚀 Starting server on http://localhost:8081")
     print("=" * 60)
     
-    app.run(debug=True, host='0.0.0.0', port=5001, threaded=True)
+    app.run(debug=True, host='0.0.0.0', port=8081, threaded=True)

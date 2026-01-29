@@ -21,7 +21,7 @@ cd video_maker/webapp
 ```
 
 ### 3️⃣ Open your browser
-Navigate to: **http://localhost:5001**
+Navigate to: **http://localhost:8081**
 
 That's it! 🎉
 
@@ -59,7 +59,7 @@ Made a mistake? Click "Clear All" to reset everything and start over.
 - **Backend**: Flask (Python)
 - **Frontend**: Vanilla JavaScript + Modern CSS
 - **Real-time Updates**: Server-Sent Events (SSE)
-- **Port**: 5001 (to avoid conflicts with macOS AirPlay)
+- **Port**: 8081 (to avoid conflicts with macOS AirPlay)
 
 ## 📖 Full Documentation
 

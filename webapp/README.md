@@ -35,11 +35,11 @@ pip install -r scripts/requirements.txt
 python server.py
 ```
 
-The server will start on `http://localhost:5000`
+The server will start on `http://localhost:8080`
 
 ### 3. Open in Browser
 
-Navigate to `http://localhost:5000` in your web browser.
+Navigate to `http://localhost:8080` in your web browser.
 
 ### 4. Upload Your Files
 
@@ -113,9 +113,9 @@ Reset everything with one click - perfect for starting a new project.
 ## 🔧 Troubleshooting
 
 ### Port Already in Use
-If port 5000 is already in use, edit `server.py` and change the port:
+If port 8080 is already in use, edit `server.py` and change the port:
 ```python
-app.run(debug=True, host='0.0.0.0', port=5001, threaded=True)
+app.run(debug=True, host='0.0.0.0', port=8081, threaded=True)
 ```
 
 ### Files Not Uploading

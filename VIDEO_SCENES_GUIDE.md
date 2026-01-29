@@ -42,7 +42,7 @@ video_maker/
 #### Option A: Use the Web UI (Recommended - With Server)
 
 1. Start the server: `python server.py`
-2. Open http://localhost:5000 in your browser
+2. Open http://localhost:8080 in your browser
 3. Upload transcript, audio, and images
 4. The scene configuration section will automatically appear
 5. For each scene you want to use a video:

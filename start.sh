@@ -41,7 +41,7 @@ echo "✓ Dependencies installed"
 echo ""
 
 # Start the server
-echo "Starting server on http://localhost:5000"
+echo "Starting server on http://localhost:8080"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo "================================================================================"

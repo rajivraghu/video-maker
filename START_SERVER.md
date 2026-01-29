@@ -20,7 +20,7 @@ Required packages:
 python server.py
 ```
 
-The server will start on `http://localhost:5000`
+The server will start on `http://localhost:8080`
 
 You'll see:
 ```
@@ -29,7 +29,7 @@ VIDEO MAKER - Web Server
 ================================================================================
 
 Starting server...
-Open your browser and navigate to: http://localhost:5000
+Open your browser and navigate to: http://localhost:8080
 
 Press Ctrl+C to stop the server
 ================================================================================
@@ -37,7 +37,7 @@ Press Ctrl+C to stop the server
 
 ### 3. Open Your Browser
 
-Navigate to: **http://localhost:5000**
+Navigate to: **http://localhost:8080**
 
 ## Using the Web Interface
 
@@ -87,11 +87,11 @@ Once complete, click **"Download Video"** to get your finished video!
 ## Troubleshooting
 
 ### Port Already in Use
-If port 5000 is already in use, edit `server.py` and change:
+If port 8080 is already in use, edit `server.py` and change:
 ```python
-app.run(debug=True, host='0.0.0.0', port=5000)
+app.run(debug=True, host='0.0.0.0', port=8080)
 ```
-to a different port (e.g., 5001)
+to a different port (e.g., 8081)
 
 ### FFmpeg Not Found
 Make sure ffmpeg is installed:
@@ -107,7 +107,7 @@ Check the server logs in the terminal for error messages. Common issues:
 
 ### Browser Doesn't Connect
 - Make sure the server is running
-- Try `http://127.0.0.1:5000` instead of `localhost`
+- Try `http://127.0.0.1:8080` instead of `localhost`
 - Check your firewall settings
 
 ## Advanced Usage

@@ -10,8 +10,47 @@ const state = {
     },
     scenes: [],
     sceneConfig: { scenes: {} },
+    transitionSounds: {},  // Maps position (0=intro, 1=after scene 1, etc.) to file
+    isProcessing: false,
+    currentPage: 'video-maker'
+};
+
+// Regional Mix State
+const rmState = {
+    mediaFiles: [], // Can be images or videos
+    audioFiles: [],
+    matchedPairs: [], // { number, media (file), mediaType ('image' or 'video'), audio (file) }
     isProcessing: false
 };
+
+// Helper to check if file is video
+function isVideoFile(file) {
+    const videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv'];
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    return videoExtensions.includes(ext);
+}
+
+// Helper to get audio duration from file
+function getAudioDuration(file) {
+    return new Promise((resolve) => {
+        const audio = new Audio();
+        audio.addEventListener('loadedmetadata', () => {
+            resolve(audio.duration);
+        });
+        audio.addEventListener('error', () => {
+            resolve(null);
+        });
+        audio.src = URL.createObjectURL(file);
+    });
+}
+
+// Helper to format duration as MM:SS
+function formatDuration(seconds) {
+    if (seconds === null || isNaN(seconds)) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
 
 // ============================================
 // DOM Elements
@@ -106,6 +145,7 @@ elements.videoFiles.addEventListener('change', (e) => {
     }
 });
 
+
 // ============================================
 // UI Update Functions
 // ============================================
@@ -187,6 +227,7 @@ elements.clearBtn.addEventListener('click', () => {
     };
     state.scenes = [];
     state.sceneConfig = { scenes: {} };
+    state.transitionSounds = {};
 
     // Reset file inputs
     elements.transcriptFile.value = '';
@@ -270,6 +311,18 @@ elements.generateBtn.addEventListener('click', async () => {
 
         if (videoSceneCount > 0) {
             addLog(`Uploading ${videoSceneCount} video scene(s)...`, 'info');
+        }
+
+        // Add per-scene transition sounds if any are configured
+        const transitionSoundKeys = Object.keys(state.transitionSounds);
+        if (transitionSoundKeys.length > 0) {
+            transitionSoundKeys.forEach(position => {
+                const file = state.transitionSounds[position];
+                if (file) {
+                    formData.append(`transition_sound_${position}`, file);
+                }
+            });
+            addLog(`Including ${transitionSoundKeys.length} transition sound(s)...`, 'info');
         }
 
         updateProgress(10, 'Uploading files...');
@@ -403,13 +456,57 @@ function renderSceneConfiguration() {
         return;
     }
 
-    elements.scenesContainer.innerHTML = state.scenes.map(scene => {
+    // Helper to render transition sound slot
+    const renderTransitionSlot = (position, label) => {
+        const hasSound = state.transitionSounds[position];
+        const fileName = hasSound ? state.transitionSounds[position].name : '';
+        return `
+            <div class="transition-sound-slot" data-position="${position}">
+                <div class="transition-slot-line"></div>
+                <div class="transition-slot-content ${hasSound ? 'has-sound' : ''}">
+                    <span class="transition-slot-label">${label}</span>
+                    <input type="file"
+                           id="transition-sound-${position}"
+                           accept=".mp3,.wav"
+                           onchange="handleTransitionSoundUpload(${position}, this.files[0])"
+                           style="display: none;">
+                    ${hasSound ? `
+                        <div class="transition-sound-info">
+                            <span class="transition-sound-name">${fileName}</span>
+                            <button type="button" class="btn-remove-transition" onclick="removeTransitionSound(${position})">
+                                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M6 18L18 6M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
+                    ` : `
+                        <label for="transition-sound-${position}" class="btn-add-transition">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <path d="M19 12h-6m3-3v6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                            </svg>
+                            Add Sound
+                        </label>
+                    `}
+                </div>
+                <div class="transition-slot-line"></div>
+            </div>
+        `;
+    };
+
+    // Build the HTML with transition slots between scenes
+    let html = '';
+
+    // Add intro transition slot (before first scene)
+    html += renderTransitionSlot(0, 'Intro Sound');
+
+    state.scenes.forEach((scene, index) => {
         const sceneKey = scene.number.toString();
         const sceneInfo = state.sceneConfig.scenes[sceneKey] || { type: 'image' };
         const isVideo = sceneInfo.type === 'video';
         const videoFileName = sceneInfo.file ? sceneInfo.file.name : '';
 
-        return `
+        html += `
             <div class="scene-card ${isVideo ? 'video-active' : ''}" data-scene="${scene.number}">
                 <div class="scene-header">
                     <div class="scene-number">Scene ${scene.number}</div>
@@ -447,7 +544,30 @@ function renderSceneConfiguration() {
                 </div>
             </div>
         `;
-    }).join('');
+
+        // Add transition slot after each scene (except the last one)
+        if (index < state.scenes.length - 1) {
+            html += renderTransitionSlot(scene.number, `Transition ${scene.number} → ${scene.number + 1}`);
+        }
+    });
+
+    elements.scenesContainer.innerHTML = html;
+}
+
+// Handle transition sound upload for specific position
+function handleTransitionSoundUpload(position, file) {
+    if (!file) return;
+
+    state.transitionSounds[position] = file;
+    renderSceneConfiguration();
+    addLog(`Added transition sound at position ${position}: ${file.name}`, 'info');
+}
+
+// Remove transition sound from specific position
+function removeTransitionSound(position) {
+    delete state.transitionSounds[position];
+    renderSceneConfiguration();
+    addLog(`Removed transition sound at position ${position}`, 'info');
 }
 
 function handleSceneToggle(sceneNumber, useVideo) {
@@ -570,6 +690,532 @@ elements.saveSceneConfigBtn.addEventListener('click', () => {
 // Make functions available globally
 window.handleSceneToggle = handleSceneToggle;
 window.handleSceneVideoUpload = handleSceneVideoUpload;
+
+// ============================================
+// Navigation
+// ============================================
+const navBtns = document.querySelectorAll('.nav-btn');
+const uploadSection = document.querySelector('.upload-section');
+const sceneConfigSection = document.getElementById('sceneConfigSection');
+const outputSection = document.getElementById('outputSection');
+const regionalMixSection = document.getElementById('regionalMixSection');
+const rmOutputSection = document.getElementById('rmOutputSection');
+
+navBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const page = btn.dataset.page;
+        switchPage(page);
+    });
+});
+
+function switchPage(page) {
+    state.currentPage = page;
+
+    // Update nav buttons
+    navBtns.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.page === page);
+    });
+
+    // Show/hide sections based on page
+    if (page === 'video-maker') {
+        uploadSection.style.display = 'block';
+        sceneConfigSection.style.display = state.scenes.length > 0 ? 'block' : 'none';
+        outputSection.style.display = state.isProcessing || elements.resultContainer.style.display === 'block' ? 'block' : 'none';
+        regionalMixSection.style.display = 'none';
+        rmOutputSection.style.display = 'none';
+    } else if (page === 'regional-mix') {
+        uploadSection.style.display = 'none';
+        sceneConfigSection.style.display = 'none';
+        outputSection.style.display = 'none';
+        regionalMixSection.style.display = 'block';
+        rmOutputSection.style.display = rmState.isProcessing || document.getElementById('rmResultContainer').style.display === 'block' ? 'block' : 'none';
+    }
+}
+
+// ============================================
+// Regional Mix - DOM Elements
+// ============================================
+const rmElements = {
+    imageFiles: document.getElementById('rmImageFiles'),
+    audioFiles: document.getElementById('rmAudioFiles'),
+    imagesStatus: document.getElementById('rmImagesStatus'),
+    audioStatus: document.getElementById('rmAudioStatus'),
+    previewSection: document.getElementById('rmPreviewSection'),
+    previewGrid: document.getElementById('rmPreviewGrid'),
+    clearBtn: document.getElementById('rmClearBtn'),
+    clearServerBtn: document.getElementById('rmClearServerBtn'),
+    generateBtn: document.getElementById('rmGenerateBtn'),
+    outputSection: document.getElementById('rmOutputSection'),
+    progressFill: document.getElementById('rmProgressFill'),
+    progressText: document.getElementById('rmProgressText'),
+    logsContent: document.getElementById('rmLogsContent'),
+    clearLogsBtn: document.getElementById('rmClearLogsBtn'),
+    resultContainer: document.getElementById('rmResultContainer'),
+    downloadLink: document.getElementById('rmDownloadLink')
+};
+
+// ============================================
+// Regional Mix - File Upload Handlers
+// ============================================
+rmElements.imageFiles.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+        rmState.mediaFiles = files.sort((a, b) => {
+            const numA = extractNumber(a.name);
+            const numB = extractNumber(b.name);
+            return numA - numB;
+        });
+        const imageCount = files.filter(f => !isVideoFile(f)).length;
+        const videoCount = files.filter(f => isVideoFile(f)).length;
+        let statusText = '';
+        if (imageCount > 0 && videoCount > 0) {
+            statusText = `${imageCount} image(s) + ${videoCount} video(s) selected`;
+        } else if (imageCount > 0) {
+            statusText = `${imageCount} image(s) selected`;
+        } else {
+            statusText = `${videoCount} video(s) selected`;
+        }
+        rmElements.imagesStatus.textContent = statusText;
+        rmElements.imagesStatus.className = 'file-status success';
+        updateRMPreview();
+        checkRMFormValidity();
+    }
+});
+
+rmElements.audioFiles.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+        rmState.audioFiles = files.sort((a, b) => {
+            const numA = extractNumber(a.name);
+            const numB = extractNumber(b.name);
+            return numA - numB;
+        });
+        rmElements.audioStatus.textContent = `${files.length} audio file(s) selected - loading durations...`;
+        rmElements.audioStatus.className = 'file-status success';
+
+        // Get total duration of all audio files
+        const durations = await Promise.all(files.map(f => getAudioDuration(f)));
+        const totalDuration = durations.reduce((sum, d) => sum + (d || 0), 0);
+        const totalFormatted = formatDuration(totalDuration);
+
+        rmElements.audioStatus.textContent = `${files.length} audio file(s) - Total: ${totalFormatted}`;
+
+        updateRMPreview();
+        checkRMFormValidity();
+    }
+});
+
+function extractNumber(filename) {
+    // Extract number from filename like "1.png", "2.mp3", "image_1.jpg", etc.
+    const match = filename.match(/(\d+)/);
+    return match ? parseInt(match[1], 10) : 0;
+}
+
+function checkRMFormValidity() {
+    const isValid = rmState.mediaFiles.length > 0 && rmState.audioFiles.length > 0;
+    rmElements.generateBtn.disabled = !isValid;
+}
+
+// ============================================
+// Regional Mix - Preview
+// ============================================
+async function updateRMPreview() {
+    if (rmState.mediaFiles.length === 0 && rmState.audioFiles.length === 0) {
+        rmElements.previewSection.style.display = 'none';
+        return;
+    }
+
+    rmElements.previewSection.style.display = 'block';
+
+    // Match media (images/videos) and audio by their numbers
+    const mediaMap = new Map();
+    const audioMap = new Map();
+
+    rmState.mediaFiles.forEach(file => {
+        const num = extractNumber(file.name);
+        mediaMap.set(num, { file, type: isVideoFile(file) ? 'video' : 'image' });
+    });
+
+    rmState.audioFiles.forEach(file => {
+        const num = extractNumber(file.name);
+        audioMap.set(num, file);
+    });
+
+    // Get all unique numbers
+    const allNumbers = new Set([...mediaMap.keys(), ...audioMap.keys()]);
+    const sortedNumbers = Array.from(allNumbers).sort((a, b) => a - b);
+
+    // Build matched pairs (preserve any manually changed media)
+    const existingPairs = new Map(rmState.matchedPairs.map(p => [p.number, p]));
+
+    // Build pairs and load audio durations
+    const pairsPromises = sortedNumbers.map(async num => {
+        const existing = existingPairs.get(num);
+        const mediaInfo = mediaMap.get(num);
+        const audioFile = audioMap.get(num);
+
+        // If there's an existing pair with manually changed media, keep it
+        if (existing && existing.manuallyChanged) {
+            // Update duration if audio changed
+            let duration = existing.audioDuration;
+            if (audioFile && audioFile !== existing.audio) {
+                duration = await getAudioDuration(audioFile);
+            }
+            return {
+                ...existing,
+                audio: audioFile || existing.audio,
+                audioDuration: duration
+            };
+        }
+
+        // Get audio duration for new pairs
+        let duration = null;
+        if (audioFile) {
+            duration = await getAudioDuration(audioFile);
+        }
+
+        return {
+            number: num,
+            media: mediaInfo ? mediaInfo.file : null,
+            mediaType: mediaInfo ? mediaInfo.type : 'image',
+            audio: audioFile || null,
+            audioDuration: duration,
+            manuallyChanged: false
+        };
+    });
+
+    rmState.matchedPairs = await Promise.all(pairsPromises);
+
+    renderRMPreviewCards();
+}
+
+function renderRMPreviewCards() {
+    rmElements.previewGrid.innerHTML = '';
+
+    rmState.matchedPairs.forEach((pair, index) => {
+        const card = document.createElement('div');
+        card.className = 'rm-preview-card' + (!pair.media || !pair.audio ? ' warning' : '');
+        card.dataset.pairIndex = index;
+
+        let mediaHtml = '';
+        if (pair.media) {
+            if (pair.mediaType === 'video') {
+                const videoUrl = URL.createObjectURL(pair.media);
+                mediaHtml = `
+                    <div class="rm-preview-media-container">
+                        <video class="rm-preview-video" src="${videoUrl}" muted></video>
+                        <div class="rm-media-badge video-badge">VIDEO</div>
+                    </div>
+                `;
+            } else {
+                mediaHtml = `
+                    <div class="rm-preview-media-container">
+                        <img class="rm-preview-image" alt="Image ${pair.number}" src="">
+                        <div class="rm-media-badge image-badge">IMAGE</div>
+                    </div>
+                `;
+                // Load image async
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = card.querySelector('.rm-preview-image');
+                    if (img) img.src = e.target.result;
+                };
+                reader.readAsDataURL(pair.media);
+            }
+        } else {
+            mediaHtml = `
+                <div class="rm-preview-media-container">
+                    <div class="rm-preview-image missing">No Media</div>
+                </div>
+            `;
+        }
+
+        let audioHtml = '';
+        if (pair.audio) {
+            const audioUrl = URL.createObjectURL(pair.audio);
+            const durationStr = formatDuration(pair.audioDuration);
+            audioHtml = `
+                <div class="rm-preview-audio">
+                    <div class="rm-audio-duration">${durationStr}</div>
+                    <audio controls src="${audioUrl}"></audio>
+                    <div class="rm-preview-audio-name">${pair.audio.name}</div>
+                </div>
+            `;
+        } else {
+            audioHtml = `<div class="rm-preview-missing">No audio file</div>`;
+        }
+
+        card.innerHTML = `
+            <div class="rm-preview-header">
+                <span class="rm-preview-number">${pair.number}</span>
+                <span class="rm-preview-title">Pair ${pair.number}</span>
+            </div>
+            <div class="rm-preview-content">
+                <div class="rm-media-section">
+                    ${mediaHtml}
+                    <div class="rm-media-actions">
+                        <input type="file"
+                               id="rm-change-media-${pair.number}"
+                               accept=".png,.jpg,.jpeg,.mp4,.mov,.avi,.webm"
+                               style="display: none;"
+                               data-pair-number="${pair.number}">
+                        <label for="rm-change-media-${pair.number}" class="rm-change-btn">
+                            Change
+                        </label>
+                    </div>
+                    ${pair.media ? `<div class="rm-media-filename">${pair.media.name}</div>` : ''}
+                </div>
+                ${audioHtml}
+            </div>
+        `;
+
+        rmElements.previewGrid.appendChild(card);
+
+        // Add event listener for changing media
+        const changeInput = card.querySelector(`#rm-change-media-${pair.number}`);
+        changeInput.addEventListener('change', (e) => handleRMMediaChange(pair.number, e.target.files[0]));
+    });
+}
+
+function handleRMMediaChange(pairNumber, file) {
+    if (!file) return;
+
+    const pairIndex = rmState.matchedPairs.findIndex(p => p.number === pairNumber);
+    if (pairIndex === -1) return;
+
+    const mediaType = isVideoFile(file) ? 'video' : 'image';
+
+    rmState.matchedPairs[pairIndex] = {
+        ...rmState.matchedPairs[pairIndex],
+        media: file,
+        mediaType: mediaType,
+        manuallyChanged: true
+    };
+
+    renderRMPreviewCards();
+    rmAddLog(`Pair ${pairNumber}: Changed to ${mediaType} - ${file.name}`, 'info');
+}
+
+// ============================================
+// Regional Mix - Clear
+// ============================================
+rmElements.clearBtn.addEventListener('click', () => {
+    if (rmState.isProcessing) {
+        if (!confirm('Processing is in progress. Are you sure you want to clear?')) {
+            return;
+        }
+    }
+
+    rmState.mediaFiles = [];
+    rmState.audioFiles = [];
+    rmState.matchedPairs = [];
+
+    rmElements.imageFiles.value = '';
+    rmElements.audioFiles.value = '';
+    rmElements.imagesStatus.textContent = '';
+    rmElements.imagesStatus.className = 'file-status';
+    rmElements.audioStatus.textContent = '';
+    rmElements.audioStatus.className = 'file-status';
+    rmElements.previewSection.style.display = 'none';
+    rmElements.previewGrid.innerHTML = '';
+    rmElements.outputSection.style.display = 'none';
+    rmElements.resultContainer.style.display = 'none';
+
+    rmUpdateProgress(0, 'Ready');
+    rmClearLogs();
+    checkRMFormValidity();
+
+    rmAddLog('All inputs cleared', 'info');
+});
+
+// Clear Server Files button
+rmElements.clearServerBtn.addEventListener('click', async () => {
+    if (!confirm('This will delete all input and output files from the server. Are you sure?')) {
+        return;
+    }
+
+    rmElements.clearServerBtn.disabled = true;
+    rmElements.clearServerBtn.textContent = 'Clearing...';
+
+    try {
+        const response = await fetch('/api/clear-files', {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            rmAddLog(`Server files cleared: ${data.message}`, 'success');
+            alert('Server files cleared successfully!');
+        } else {
+            rmAddLog(`Error clearing files: ${data.error}`, 'error');
+            alert(`Error: ${data.error}`);
+        }
+    } catch (error) {
+        rmAddLog(`Error: ${error.message}`, 'error');
+        alert(`Error: ${error.message}`);
+    } finally {
+        rmElements.clearServerBtn.disabled = false;
+        rmElements.clearServerBtn.innerHTML = `
+            <svg class="btn-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            Clear Server Files
+        `;
+    }
+});
+
+rmElements.clearLogsBtn.addEventListener('click', rmClearLogs);
+
+// ============================================
+// Regional Mix - Logging
+// ============================================
+function rmAddLog(message, type = 'info') {
+    const logLine = document.createElement('div');
+    logLine.className = `log-line ${type}`;
+    logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    rmElements.logsContent.appendChild(logLine);
+    rmElements.logsContent.scrollTop = rmElements.logsContent.scrollHeight;
+}
+
+function rmUpdateProgress(percentage, message) {
+    rmElements.progressFill.style.width = `${percentage}%`;
+    rmElements.progressText.textContent = message;
+}
+
+function rmClearLogs() {
+    rmElements.logsContent.innerHTML = '<div class="log-line">Ready to process...</div>';
+}
+
+// ============================================
+// Regional Mix - Video Generation
+// ============================================
+rmElements.generateBtn.addEventListener('click', async () => {
+    if (rmState.isProcessing) return;
+
+    // Check that we have valid pairs (both media and audio)
+    const validPairs = rmState.matchedPairs.filter(p => p.media && p.audio);
+    if (validPairs.length === 0) {
+        alert('No valid media-audio pairs found. Make sure your files are numbered (e.g., 1.png with 1.mp3).');
+        return;
+    }
+
+    rmState.isProcessing = true;
+    rmElements.generateBtn.disabled = true;
+    rmElements.outputSection.style.display = 'block';
+    rmElements.resultContainer.style.display = 'none';
+
+    rmElements.outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    rmClearLogs();
+    rmAddLog('Starting Regional Mix video generation...', 'info');
+
+    const imageCount = validPairs.filter(p => p.mediaType === 'image').length;
+    const videoCount = validPairs.filter(p => p.mediaType === 'video').length;
+    rmAddLog(`Found ${validPairs.length} valid pairs (${imageCount} images, ${videoCount} videos)`, 'info');
+    rmUpdateProgress(5, 'Preparing files...');
+
+    try {
+        const formData = new FormData();
+
+        // Add media files with their numbers and type info
+        validPairs.forEach(pair => {
+            formData.append(`media_${pair.number}`, pair.media);
+            formData.append(`mediatype_${pair.number}`, pair.mediaType);
+        });
+
+        // Add audio files with their numbers
+        validPairs.forEach(pair => {
+            formData.append(`audio_${pair.number}`, pair.audio);
+        });
+
+        // Add the pair order and types
+        const pairInfo = validPairs.map(p => ({
+            number: p.number,
+            mediaType: p.mediaType
+        }));
+        formData.append('pair_info', JSON.stringify(pairInfo));
+
+        rmAddLog(`Uploading ${validPairs.length} media files and ${validPairs.length} audio files...`, 'info');
+        rmUpdateProgress(10, 'Uploading files...');
+
+        const response = await fetch('/api/regional-mix', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        handleRMServerMessage(data);
+                    } catch (e) {
+                        console.error('Error parsing SSE data:', e);
+                    }
+                }
+            }
+        }
+
+    } catch (error) {
+        rmAddLog(`Error: ${error.message}`, 'error');
+        rmUpdateProgress(0, 'Failed');
+        rmState.isProcessing = false;
+        rmElements.generateBtn.disabled = false;
+    }
+});
+
+function handleRMServerMessage(data) {
+    switch (data.type) {
+        case 'log':
+            rmAddLog(data.message, data.level || 'info');
+            break;
+
+        case 'progress':
+            rmUpdateProgress(data.percentage, data.message);
+            break;
+
+        case 'complete':
+            rmAddLog('Video generation completed successfully!', 'success');
+            rmUpdateProgress(100, 'Complete!');
+            showRMResult(data.videoUrl);
+            rmState.isProcessing = false;
+            break;
+
+        case 'error':
+            rmAddLog(`Error: ${data.message}`, 'error');
+            rmUpdateProgress(0, 'Failed');
+            rmState.isProcessing = false;
+            rmElements.generateBtn.disabled = false;
+            break;
+    }
+}
+
+function showRMResult(videoUrl) {
+    rmElements.resultContainer.style.display = 'block';
+    rmElements.downloadLink.href = videoUrl;
+    rmElements.resultContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// Setup drag and drop for Regional Mix inputs
+setupDragAndDrop(rmElements.imageFiles, rmElements.imagesStatus, 'images');
+setupDragAndDrop(rmElements.audioFiles, rmElements.audioStatus, 'audio');
 
 // ============================================
 // Initialize
