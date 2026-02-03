@@ -16,6 +16,11 @@ from pathlib import Path
 # CONFIGURATION - Edit these values to customize
 # =============================================================================
 
+# Caption Style Setting (can be overridden by CAPTION_STYLE environment variable)
+# Options: 'default' (word highlighting), 'bold_caps' (bold all caps), 'none' (no captions)
+CAPTION_STYLE = os.environ.get('CAPTION_STYLE', 'default')
+print(f"[DEBUG] CAPTION_STYLE from environment: '{CAPTION_STYLE}'")
+
 # Caption Style - Using Google Font (Poppins)
 FONT_NAME = "Poppins"
 FONT_SIZE = 48                  # Larger size for better readability
@@ -29,9 +34,9 @@ CAPTION_ALIGNMENT = 2           # 2 = bottom center
 WORDS_PER_LINE = 6              # Number of words to show per caption line
 
 # Video Quality
-VIDEO_CRF = 23                 # Lower = better quality (18-28 recommended)
+VIDEO_CRF = 18                 # Lower = better quality (18-28 recommended, 18 for YouTube)
 VIDEO_PRESET = "medium"        # ultrafast, fast, medium, slow, slower
-AUDIO_BITRATE = "192k"         # Audio quality
+AUDIO_BITRATE = "256k"         # Audio quality (YouTube recommended)
 
 # Transcription
 MODEL_SIZE = "base"            # tiny, base, small, medium, large
@@ -119,6 +124,24 @@ def get_video_duration(video_path):
         except ValueError:
             return None
     return None
+
+def get_video_resolution(video_path):
+    """Get video resolution (width, height) using ffprobe"""
+    result = subprocess.run([
+        'ffprobe', '-v', 'error',
+        '-select_streams', 'v:0',
+        '-show_entries', 'stream=width,height',
+        '-of', 'csv=p=0',
+        str(video_path)
+    ], capture_output=True, text=True)
+
+    if result.returncode == 0:
+        try:
+            width, height = map(int, result.stdout.strip().split(','))
+            return width, height
+        except (ValueError, AttributeError):
+            return None, None
+    return None, None
 
 
 def download_google_font(font_name="Poppins"):
@@ -250,6 +273,88 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             caption_parts = []
             for j, w in enumerate(chunk):
                 word_text = w['word']
+                if j == word_idx:
+                    # Current word - highlight in yellow
+                    # ASS color format: {\c&HBBGGRR&}
+                    caption_parts.append(f"{{\\c&H00FFFF&}}{word_text}{{\\c&HFFFFFF&}}")
+                else:
+                    # Other words - white
+                    caption_parts.append(word_text)
+
+            caption_text = " ".join(caption_parts)
+
+            # Create ASS dialogue event
+            start_time = format_ass_time(word_start)
+            end_time = format_ass_time(word_end)
+
+            event = f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{caption_text}"
+            events.append(event)
+
+    return ass_header + "\n".join(events)
+
+
+def generate_bold_caps_captions(all_words, font_path, video_width, video_height):
+    """
+    Generate ASS subtitle file with bold all-caps captions.
+    Shows groups of words in bold uppercase with yellow highlighting on current word.
+    """
+    # ASS Header with style definitions - Bold style
+    ass_header = f"""[Script Info]
+Title: Video Captions Bold Caps
+ScriptType: v4.00+
+PlayResX: {video_width}
+PlayResY: {video_height}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{FONT_NAME},{FONT_SIZE},{FONT_COLOR},&H000000FF,{OUTLINE_COLOR},&H80000000,-1,0,0,0,100,100,1,0,1,{OUTLINE_WIDTH + 1},{SHADOW_DEPTH},{CAPTION_ALIGNMENT},40,40,{MARGIN_BOTTOM},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+    events = []
+
+    if not all_words:
+        return ass_header
+
+    # Group words into chunks for display
+    word_chunks = []
+    current_chunk = []
+
+    for i, word_info in enumerate(all_words):
+        current_chunk.append({
+            'word': word_info['word'].strip(),
+            'start': word_info['start'],
+            'end': word_info['end'],
+            'index': i
+        })
+
+        # Create new chunk after WORDS_PER_LINE words
+        if len(current_chunk) >= WORDS_PER_LINE:
+            word_chunks.append(current_chunk)
+            current_chunk = []
+
+    # Don't forget the last chunk
+    if current_chunk:
+        word_chunks.append(current_chunk)
+
+    # Generate events for each word within each chunk (with yellow highlighting)
+    for chunk in word_chunks:
+        # For each word in the chunk, create an event showing that word highlighted
+        for word_idx, word_info in enumerate(chunk):
+            word_start = word_info['start']
+            # Word end is either the start of next word or end of chunk
+            if word_idx < len(chunk) - 1:
+                word_end = chunk[word_idx + 1]['start']
+            else:
+                word_end = word_info['end']
+
+            # Build the caption text with current word highlighted in yellow (ALL CAPS)
+            caption_parts = []
+            for j, w in enumerate(chunk):
+                word_text = w['word'].upper()  # Convert to uppercase
                 if j == word_idx:
                     # Current word - highlight in yellow
                     # ASS color format: {\c&HBBGGRR&}
@@ -491,39 +596,71 @@ def main():
     # STEP 7: CREATE SUBTITLE FILES
     # =============================================================================
     print_step(7, "Creating Subtitle Files")
+    print(f"   Caption style: {CAPTION_STYLE}")
 
-    # Create standard SRT file (for external use)
-    with open(SRT_FILE, 'w', encoding='utf-8') as f:
-        for i, timing in enumerate(adjusted_timings):
-            f.write(f"{i + 1}\n")
-            f.write(f"{format_srt_time(timing['start'])} --> {format_srt_time(timing['end'])}\n")
-            f.write(f"{timing['text']}\n")
-            f.write("\n")
-
-    print(f"✓ Created: {SRT_FILE.name}")
-
-    # Get video dimensions for ASS subtitle generation
-    result = subprocess.run([
-        'ffprobe', '-v', 'error',
-        '-select_streams', 'v:0',
-        '-show_entries', 'stream=width,height',
-        '-of', 'csv=p=0',
-        str(image_files[0])
-    ], capture_output=True, text=True)
-
-    if result.returncode == 0:
-        video_width, video_height = map(int, result.stdout.strip().split(','))
+    if CAPTION_STYLE == 'none':
+        print("   Skipping subtitle generation (no captions mode)")
     else:
-        video_width, video_height = 1920, 1080
+        # Create standard SRT file (for external use)
+        with open(SRT_FILE, 'w', encoding='utf-8') as f:
+            for i, timing in enumerate(adjusted_timings):
+                f.write(f"{i + 1}\n")
+                f.write(f"{format_srt_time(timing['start'])} --> {format_srt_time(timing['end'])}\n")
+                text = timing['text'].upper() if CAPTION_STYLE == 'bold_caps' else timing['text']
+                f.write(f"{text}\n")
+                f.write("\n")
 
-    # Create ASS subtitle file with word-by-word highlighting
-    print("   Generating word-level captions with highlighting...")
-    ass_content = generate_word_captions(all_words, font_path, video_width, video_height)
+        print(f"✓ Created: {SRT_FILE.name}")
 
-    with open(ASS_FILE, 'w', encoding='utf-8') as f:
-        f.write(ass_content)
+        # Get video dimensions for ASS subtitle generation
+        # Check video sources first, then images, then default
+        video_width, video_height = None, None
 
-    print(f"✓ Created: {ASS_FILE.name} (with word-by-word highlighting)")
+        # Try to get resolution from first video in scene config
+        for scene_key, scene_info in scene_config.items():
+            if scene_info.get('type') == 'video':
+                video_path = scene_info.get('path', '')
+                if video_path:
+                    video_file = Path(video_path)
+                    if not video_file.is_absolute():
+                        video_file = PROJECT_ROOT / video_path
+                    if video_file.exists():
+                        video_width, video_height = get_video_resolution(video_file)
+                        if video_width and video_height:
+                            break
+
+        # Fall back to image dimensions
+        if not video_width or not video_height:
+            if image_files:
+                result = subprocess.run([
+                    'ffprobe', '-v', 'error',
+                    '-select_streams', 'v:0',
+                    '-show_entries', 'stream=width,height',
+                    '-of', 'csv=p=0',
+                    str(image_files[0])
+                ], capture_output=True, text=True)
+
+                if result.returncode == 0:
+                    video_width, video_height = map(int, result.stdout.strip().split(','))
+
+        # Final fallback to 1920x1080
+        if not video_width or not video_height:
+            video_width, video_height = 1920, 1080
+
+        # Create ASS subtitle file based on style
+        if CAPTION_STYLE == 'bold_caps':
+            print("   Generating bold CAPS captions with word highlighting...")
+            ass_content = generate_bold_caps_captions(all_words, font_path, video_width, video_height)
+            style_desc = "bold CAPS with word highlighting"
+        else:  # default
+            print("   Generating word-level captions with highlighting...")
+            ass_content = generate_word_captions(all_words, font_path, video_width, video_height)
+            style_desc = "word-by-word highlighting"
+
+        with open(ASS_FILE, 'w', encoding='utf-8') as f:
+            f.write(ass_content)
+
+        print(f"✓ Created: {ASS_FILE.name} ({style_desc})")
 
     # =============================================================================
     # STEP 8: SAVE TIMING DATA
@@ -552,25 +689,46 @@ def main():
     # =============================================================================
     print_step(9, "Creating Video (this will take several minutes)")
 
-    # Get image dimensions
-    result = subprocess.run([
-        'ffprobe', '-v', 'error',
-        '-select_streams', 'v:0',
-        '-show_entries', 'stream=width,height',
-        '-of', 'csv=p=0',
-        str(image_files[0])
-    ], capture_output=True, text=True)
+    # Get resolution from video sources first (if any), then images, then default
+    detected_width, detected_height = None, None
 
-    if result.returncode == 0:
-        img_width, img_height = map(int, result.stdout.strip().split(','))
-        print(f"   Image dimensions: {img_width}x{img_height}")
-    else:
-        img_width, img_height = 1920, 1080
-        print(f"   Using default dimensions: {img_width}x{img_height}")
+    # Check if any scene uses video - get resolution from first video
+    for scene_key, scene_info in scene_config.items():
+        if scene_info.get('type') == 'video':
+            video_path = scene_info.get('path', '')
+            if video_path:
+                video_file = Path(video_path)
+                if not video_file.is_absolute():
+                    video_file = PROJECT_ROOT / video_path
+                if video_file.exists():
+                    detected_width, detected_height = get_video_resolution(video_file)
+                    if detected_width and detected_height:
+                        print(f"   Video dimensions: {detected_width}x{detected_height}")
+                        break
 
-    # Use configured resolution or image resolution
-    width = OUTPUT_WIDTH if OUTPUT_WIDTH else img_width
-    height = OUTPUT_HEIGHT if OUTPUT_HEIGHT else img_height
+    # Fall back to image dimensions if no video resolution found
+    if not detected_width or not detected_height:
+        if image_files:
+            result = subprocess.run([
+                'ffprobe', '-v', 'error',
+                '-select_streams', 'v:0',
+                '-show_entries', 'stream=width,height',
+                '-of', 'csv=p=0',
+                str(image_files[0])
+            ], capture_output=True, text=True)
+
+            if result.returncode == 0:
+                detected_width, detected_height = map(int, result.stdout.strip().split(','))
+                print(f"   Image dimensions: {detected_width}x{detected_height}")
+
+    # Final fallback to 1920x1080
+    if not detected_width or not detected_height:
+        detected_width, detected_height = 1920, 1080
+        print(f"   Using default dimensions: {detected_width}x{detected_height}")
+
+    # Use configured resolution or detected resolution
+    width = OUTPUT_WIDTH if OUTPUT_WIDTH else detected_width
+    height = OUTPUT_HEIGHT if OUTPUT_HEIGHT else detected_height
 
     print(f"   Assembling {len(adjusted_timings)} scenes with smooth transitions...")
     print(f"   Transition duration: {TRANSITION_DURATION}s fade effect")
@@ -631,16 +789,51 @@ def main():
                     print(f"      Falling back to image")
                     use_video = False
                 elif video_duration < duration:
-                    # Video is shorter than required - pad with black screen
-                    print(f"   Scene {paragraph_num}: Video is {video_duration:.2f}s, padding to {duration:.2f}s with black screen")
+                    # Video is shorter than required - freeze last frame with smooth zoom-in effect
+                    remaining_duration = duration - video_duration
+                    print(f"   Scene {paragraph_num}: Video is {video_duration:.2f}s, adding {remaining_duration:.2f}s zoom effect on last frame")
 
-                    # Strategy: Play video, then show black screen for remaining time
+                    # Calculate zoom parameters for ultra-smooth zoom
+                    # Using subtle 10% zoom for professional look
+                    target_zoom = 1.10
+                    zoom_amount = target_zoom - 1.0
+                    # Use 60fps for maximum smoothness
+                    zoom_fps = 60
+                    output_frames = int(remaining_duration * zoom_fps) + 1
+
+                    # Strategy: Play video, then zoom-in on last frame for remaining time
+                    # Get last frame by trimming near end, reversing, and taking first frame
+                    last_frame_start = max(0, video_duration - 0.5)
+
+                    # Ultra-smooth zoom using linear interpolation (simpler = more stable)
+                    # Small zoom amount + high fps + linear = buttery smooth
+                    zoom_per_frame = zoom_amount / max(output_frames, 1)
+                    zoom_expr = f"1.0+{zoom_per_frame:.10f}*on"
+
+                    # Scale up 4x for maximum quality interpolation
+                    upscale_w = width * 4
+                    upscale_h = height * 4
+
                     filter_complex = (
+                        # Scale and pad the input video, split into two streams
                         f"[0:v]scale={width}:{height}:force_original_aspect_ratio=decrease,"
                         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
-                        f"setsar=1,fps=25[v];"
-                        f"color=c=black:s={width}x{height}:d={duration - video_duration}:r=25[black];"
-                        f"[v][black]concat=n=2:v=1:a=0,{fade_filter}"
+                        f"setsar=1,fps={zoom_fps},split=2[main][forlast];"
+                        # Trim the main video to its actual duration
+                        f"[main]trim=0:{video_duration},setpts=PTS-STARTPTS,format=yuv420p[trimmed];"
+                        # Get the actual last frame: use select to get exactly one frame
+                        f"[forlast]trim=start={last_frame_start},setpts=PTS-STARTPTS,"
+                        f"reverse,select='eq(n\\,0)',setpts=PTS-STARTPTS,"
+                        # Scale up 4x with high-quality bicubic for smooth zoom interpolation
+                        f"scale={upscale_w}:{upscale_h}:flags=bicubic,"
+                        # Apply smooth linear zoom - simpler expression = no floating point jitter
+                        # Use floor() for consistent pixel positioning
+                        f"zoompan=z='{zoom_expr}':"
+                        f"x='floor((iw-iw/zoom)/2)':y='floor((ih-ih/zoom)/2)':"
+                        f"d={output_frames}:s={width}x{height}:fps={zoom_fps},"
+                        f"format=yuv420p[zoomed];"
+                        # Concatenate original video with zoomed last frame, then apply fade
+                        f"[trimmed][zoomed]concat=n=2:v=1:a=0,{fade_filter}"
                     )
 
                     cmd = [
@@ -738,8 +931,8 @@ def main():
 
     # Check for per-scene transition sounds and mix them at appropriate times
     if TRANSITION_SOUNDS_DIR.exists():
-        # Find all transition sound files (named by position: 0.mp3, 1.mp3, etc.)
-        sound_files = list(TRANSITION_SOUNDS_DIR.glob("*.mp3"))
+        # Find all transition sound files (named by position: 0.mp3, 1.wav, etc.)
+        sound_files = list(TRANSITION_SOUNDS_DIR.glob("*.mp3")) + list(TRANSITION_SOUNDS_DIR.glob("*.wav"))
 
         if sound_files:
             print("   Mixing per-scene transition sound effects...")
@@ -790,17 +983,17 @@ def main():
                 for i, (position, _, timestamp) in enumerate(transition_sounds):
                     input_idx = i + 1  # Video is input 0
                     delay_ms = int(timestamp * 1000)
-                    # Trim and delay each sound
+                    # Trim, boost volume, and delay each sound
                     filter_parts.append(
                         f"[{input_idx}:a]atrim=0:{TRANSITION_SOUND_DURATION},"
-                        f"asetpts=PTS-STARTPTS,adelay={delay_ms}|{delay_ms}[trans{i}]"
+                        f"asetpts=PTS-STARTPTS,volume=1.5,adelay={delay_ms}|{delay_ms}[trans{i}]"
                     )
 
-                # Mix all sounds with original audio
+                # Mix all sounds with original audio (normalize=0 prevents volume reduction)
                 mix_inputs = "[0:a]" + "".join(f"[trans{i}]" for i in range(len(transition_sounds)))
                 filter_parts.append(
                     f"{mix_inputs}amix=inputs={len(transition_sounds) + 1}:"
-                    f"duration=first:dropout_transition=0[aout]"
+                    f"duration=first:dropout_transition=0:normalize=0[aout]"
                 )
 
                 filter_complex = ";".join(filter_parts)
@@ -832,58 +1025,64 @@ def main():
                     if temp_video_with_transitions.exists():
                         temp_video_with_transitions.unlink()
 
-    # Now burn in the subtitles with word highlighting
-    print("   Burning captions into video...")
-
-    # Build the subtitle filter - FFmpeg ASS filter with proper escaping
-    # For the ASS filter, colons in paths need to be escaped with backslash
-    def escape_ffmpeg_path(path):
-        """Escape path for FFmpeg filter syntax"""
-        p = str(path)
-        # Escape colons (required for macOS paths like /Users/...)
-        # The colon is used as option separator in FFmpeg filters
-        p = p.replace(':', '\\:')
-        return p
-
-    ass_path_escaped = escape_ffmpeg_path(ASS_FILE)
-
-    # Add font directory to FFmpeg if we have a custom font
-    if font_path and font_path.exists():
-        font_dir_escaped = escape_ffmpeg_path(FONTS_DIR)
-        subtitle_filter = f"ass={ass_path_escaped}:fontsdir={font_dir_escaped}"
-    else:
-        subtitle_filter = f"ass={ass_path_escaped}"
-
-    # Use ffmpeg-full for subtitle burning (has libass support)
-    cmd = [
-        FFMPEG_PATH, '-y',
-        '-i', str(temp_video),
-        '-vf', subtitle_filter,
-        '-c:v', 'libx264',
-        '-preset', VIDEO_PRESET,
-        '-crf', str(VIDEO_CRF),
-        '-c:a', 'copy',
-        str(OUTPUT_VIDEO)
-    ]
-
-    print(f"   Using FFmpeg: {FFMPEG_PATH}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
-
-    if result.returncode != 0:
-        print("⚠️  Warning: Could not burn captions (FFmpeg subtitle filter issue)")
-        if result.stderr:
-            # Print last part of error for debugging
-            error_lines = result.stderr.strip().split('\n')[-5:]
-            for line in error_lines:
-                print(f"   {line}")
-        print("   Falling back to video without burned-in captions...")
-        # Use the temp video without subtitles as the final output
+    # Now burn in the subtitles (unless no captions mode)
+    if CAPTION_STYLE == 'none':
+        print("   Skipping caption burning (no captions mode)")
+        # Just rename temp video to final output
         shutil.move(str(temp_video), str(OUTPUT_VIDEO))
+        print("✓ Video created without captions")
     else:
-        print("✓ Captions burned into video successfully")
-        # Cleanup temp video
-        if temp_video.exists():
-            temp_video.unlink()
+        print("   Burning captions into video...")
+
+        # Build the subtitle filter - FFmpeg ASS filter with proper escaping
+        # For the ASS filter, colons in paths need to be escaped with backslash
+        def escape_ffmpeg_path(path):
+            """Escape path for FFmpeg filter syntax"""
+            p = str(path)
+            # Escape colons (required for macOS paths like /Users/...)
+            # The colon is used as option separator in FFmpeg filters
+            p = p.replace(':', '\\:')
+            return p
+
+        ass_path_escaped = escape_ffmpeg_path(ASS_FILE)
+
+        # Add font directory to FFmpeg if we have a custom font
+        if font_path and font_path.exists():
+            font_dir_escaped = escape_ffmpeg_path(FONTS_DIR)
+            subtitle_filter = f"ass={ass_path_escaped}:fontsdir={font_dir_escaped}"
+        else:
+            subtitle_filter = f"ass={ass_path_escaped}"
+
+        # Use ffmpeg-full for subtitle burning (has libass support)
+        cmd = [
+            FFMPEG_PATH, '-y',
+            '-i', str(temp_video),
+            '-vf', subtitle_filter,
+            '-c:v', 'libx264',
+            '-preset', VIDEO_PRESET,
+            '-crf', str(VIDEO_CRF),
+            '-c:a', 'copy',
+            str(OUTPUT_VIDEO)
+        ]
+
+        print(f"   Using FFmpeg: {FFMPEG_PATH}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print("⚠️  Warning: Could not burn captions (FFmpeg subtitle filter issue)")
+            if result.stderr:
+                # Print last part of error for debugging
+                error_lines = result.stderr.strip().split('\n')[-5:]
+                for line in error_lines:
+                    print(f"   {line}")
+            print("   Falling back to video without burned-in captions...")
+            # Use the temp video without subtitles as the final output
+            shutil.move(str(temp_video), str(OUTPUT_VIDEO))
+        else:
+            print("✓ Captions burned into video successfully")
+            # Cleanup temp video
+            if temp_video.exists():
+                temp_video.unlink()
 
     # Cleanup temporary files
     concat_file.unlink()
@@ -905,14 +1104,21 @@ def main():
     print(f"   Scenes: {len(adjusted_timings)}")
 
     print(f"\n📝 Additional Files:")
-    print(f"   Subtitles (SRT): {SRT_FILE}")
-    print(f"   Subtitles (ASS): {ASS_FILE} (with word highlighting)")
+    if CAPTION_STYLE != 'none':
+        print(f"   Subtitles (SRT): {SRT_FILE}")
+        print(f"   Subtitles (ASS): {ASS_FILE}")
     print(f"   Timing data: {TIMING_JSON}")
     print(f"   Timing info: {TIMING_TXT}")
 
     print(f"\n🎬 Caption Features:")
-    print(f"   Font: {FONT_NAME} (Google Font)")
-    print(f"   Style: White text with yellow word highlighting")
+    if CAPTION_STYLE == 'none':
+        print(f"   Style: No captions")
+    elif CAPTION_STYLE == 'bold_caps':
+        print(f"   Font: {FONT_NAME} (Google Font)")
+        print(f"   Style: Bold CAPS - all uppercase with yellow word highlighting")
+    else:
+        print(f"   Font: {FONT_NAME} (Google Font)")
+        print(f"   Style: White text with yellow word highlighting")
 
     print(f"\n✨ Your video is ready to use!")
     print("="*80 + "\n")

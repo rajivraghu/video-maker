@@ -116,6 +116,29 @@
                         <div class="file-status" id="videosStatus"></div>
                     </div>
 
+                    <!-- Caption Style Selector -->
+                    <div class="upload-card">
+                        <div class="upload-header">
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M7 8h10M7 12h10M7 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                <rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2"/>
+                            </svg>
+                            <h3>Caption Style</h3>
+                        </div>
+                        <p class="upload-description">Choose how captions appear in the video</p>
+                        <select id="captionStyle" class="style-select">
+                            <option value="default">Default (Word Highlighting)</option>
+                            <option value="bold_caps">Bold CAPS</option>
+                            <option value="none">No Captions</option>
+                        </select>
+                        <div class="caption-style-preview" id="captionStylePreview">
+                            <div class="preview-label">Preview:</div>
+                            <div class="preview-text" id="previewText">
+                                <span class="highlight">This</span> is how captions will appear
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <!-- Action Buttons -->
@@ -235,6 +258,14 @@
                     <div>
                         <strong>How it works:</strong> Upload numbered images/videos (1.png, 2.mp4, etc.) and matching audio files (1.mp3, 2.mp3, etc.). Each visual will be paired with its corresponding audio track. Videos will be trimmed to match audio duration (video audio is muted). You can also change images or switch to videos in the preview below.
                     </div>
+                </div>
+
+                <!-- Transition Options -->
+                <div class="rm-options-bar">
+                    <label class="rm-checkbox-label">
+                        <input type="checkbox" id="rmNoTransitions" checked>
+                        <span class="rm-checkbox-text">No Transitions (direct cut between clips)</span>
+                    </label>
                 </div>
 
                 <div class="upload-grid">

@@ -145,6 +145,10 @@ def generate_video():
                     mimetype='text/event-stream'
                 )
         
+        # Get caption style from form data
+        caption_style = request.form.get('caption_style', 'default')
+        print(f"[DEBUG] Caption style received from form: '{caption_style}'")
+
         # Save files immediately (while still in request context)
         # Clear both input and output directories before starting
         clear_input_directory()
@@ -213,8 +217,9 @@ def generate_video():
 
                 if sound_file and sound_file.filename != '':
                     if allowed_file(sound_file.filename, 'transition_sound'):
-                        # Save with position in filename
-                        sound_path = transition_sounds_dir / f"{position}.mp3"
+                        # Save with position in filename, preserving original extension
+                        ext = sound_file.filename.rsplit('.', 1)[1].lower()
+                        sound_path = transition_sounds_dir / f"{position}.{ext}"
                         sound_file.save(str(sound_path))
                         transition_sounds_saved.append(position)
 
@@ -243,14 +248,19 @@ def generate_video():
             yield send_sse_message('log', message='Starting video generation...', level='info')
             yield send_sse_message('progress', percentage=25, message='Processing...')
             
-            # Execute the create_video.py script
+            # Execute the create_video.py script with caption style
+            env = os.environ.copy()
+            env['CAPTION_STYLE'] = caption_style
+            print(f"[DEBUG] Setting CAPTION_STYLE env var to: '{caption_style}'")
+            yield send_sse_message('log', message=f'Caption style: {caption_style}', level='info')
             process = subprocess.Popen(
                 [sys.executable, str(CREATE_VIDEO_SCRIPT)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 universal_newlines=True,
                 bufsize=1,
-                cwd=str(PROJECT_ROOT)
+                cwd=str(PROJECT_ROOT),
+                env=env
             )
             
             # Stream output

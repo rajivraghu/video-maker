@@ -10,7 +10,17 @@
       "Bash(git init:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(for f in /Users/rajivraghu/workspace/video_maker/video_maker/input/*.{jpg,jpeg,png,webp})",
+      "Bash(do if [ -f \"$f\" ])",
+      "Bash(then echo \"File: $f\")",
+      "Bash(ffprobe:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(for f in /Users/rajivraghu/workspace/video_maker/video_maker/input/videos/*.mp4)",
+      "Bash(do echo \"Video: $f\")",
+      "Bash(lsof:*)",
+      "Bash(kill:*)"
     ]
   }
 }

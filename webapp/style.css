@@ -414,6 +414,35 @@ body::before {
     box-shadow: var(--shadow-sm);
 }
 
+/* Missing sequence item styles */
+.image-preview-item.missing {
+    border-color: var(--color-error);
+    background: rgba(239, 68, 68, 0.15);
+    border-style: dashed;
+    border-width: 2px;
+}
+
+.image-preview-item.missing:hover {
+    border-color: var(--color-error);
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
+.image-preview-number.missing {
+    background: var(--color-error);
+}
+
+.missing-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--color-error);
+    background: rgba(239, 68, 68, 0.1);
+}
+
 .image-preview-container::-webkit-scrollbar {
     width: 6px;
 }
@@ -1117,6 +1146,39 @@ body::before {
     margin-bottom: var(--spacing-lg);
 }
 
+/* Regional Mix Options Bar */
+.rm-options-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.rm-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    cursor: pointer;
+    user-select: none;
+}
+
+.rm-checkbox-label input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.rm-checkbox-text {
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
 /* Regional Mix Preview Section */
 .rm-preview-section {
     margin-top: var(--spacing-lg);
@@ -1324,6 +1386,81 @@ body::before {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* ============================================
+   Caption Style Selector
+   ============================================ */
+.style-select {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-base);
+    font-family: var(--font-family);
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius-md);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right var(--spacing-sm) center;
+    background-size: 20px;
+    padding-right: 40px;
+}
+
+.style-select:hover {
+    border-color: var(--color-primary);
+}
+
+.style-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(138, 92, 246, 0.2);
+}
+
+.style-select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: var(--spacing-sm);
+}
+
+.caption-style-preview {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: #000;
+    border-radius: var(--border-radius-sm);
+    text-align: center;
+}
+
+.preview-label {
+    font-size: var(--font-size-xs);
+    color: var(--text-tertiary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.preview-text {
+    font-family: 'Poppins', sans-serif;
+    font-size: var(--font-size-lg);
+    color: white;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.preview-text .highlight {
+    color: #ffff00;
+}
+
+.preview-text.bold-caps {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.preview-text.no-captions {
+    color: var(--text-tertiary);
+    font-style: italic;
+    text-shadow: none;
 }
 
 /* ============================================

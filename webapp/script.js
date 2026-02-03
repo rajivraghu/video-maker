@@ -6,13 +6,15 @@ const state = {
         transcript: null,
         audio: null,
         images: [],
+        imageSequences: [],
         videos: []
     },
     scenes: [],
     sceneConfig: { scenes: {} },
     transitionSounds: {},  // Maps position (0=intro, 1=after scene 1, etc.) to file
     isProcessing: false,
-    currentPage: 'video-maker'
+    currentPage: 'video-maker',
+    captionStyle: 'default'  // 'default', 'bold_caps', or 'none'
 };
 
 // Regional Mix State
@@ -20,7 +22,8 @@ const rmState = {
     mediaFiles: [], // Can be images or videos
     audioFiles: [],
     matchedPairs: [], // { number, media (file), mediaType ('image' or 'video'), audio (file) }
-    isProcessing: false
+    isProcessing: false,
+    noTransitions: true  // When true, no fade effects between clips (default: enabled)
 };
 
 // Helper to check if file is video
@@ -77,7 +80,10 @@ const elements = {
     logsContent: document.getElementById('logsContent'),
     clearLogsBtn: document.getElementById('clearLogsBtn'),
     resultContainer: document.getElementById('resultContainer'),
-    downloadLink: document.getElementById('downloadLink')
+    downloadLink: document.getElementById('downloadLink'),
+    captionStyle: document.getElementById('captionStyle'),
+    captionStylePreview: document.getElementById('captionStylePreview'),
+    previewText: document.getElementById('previewText')
 };
 
 // ============================================
@@ -129,10 +135,24 @@ elements.audioFile.addEventListener('change', (e) => {
 elements.imageFiles.addEventListener('change', (e) => {
     const files = Array.from(e.target.files);
     if (files.length > 0) {
-        // Sort files by name to ensure proper ordering
-        state.files.images = files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        // Parse sequence numbers and sort by them
+        const filesWithSequence = files.map(file => {
+            const match = file.name.match(/(\d+)/);
+            return {
+                file,
+                sequence: match ? parseInt(match[1], 10) : 0
+            };
+        });
+
+        // Sort by sequence number
+        filesWithSequence.sort((a, b) => a.sequence - b.sequence);
+
+        // Store files in sequence order
+        state.files.images = filesWithSequence.map(f => f.file);
+        state.files.imageSequences = filesWithSequence.map(f => f.sequence);
+
         updateFileStatus('images', `${files.length} file(s) selected`, true);
-        displayImagePreviews(state.files.images);
+        displayImagePreviews(state.files.images, state.files.imageSequences);
         checkFormValidity();
     }
 });
@@ -144,6 +164,31 @@ elements.videoFiles.addEventListener('change', (e) => {
         updateFileStatus('videos', `${files.length} video(s) selected`, true);
     }
 });
+
+// Caption Style Selector
+elements.captionStyle.addEventListener('change', (e) => {
+    state.captionStyle = e.target.value;
+    updateCaptionPreview(e.target.value);
+});
+
+function updateCaptionPreview(style) {
+    const previewText = elements.previewText;
+    previewText.className = 'preview-text';
+
+    switch (style) {
+        case 'default':
+            previewText.innerHTML = '<span class="highlight">This</span> is how captions will appear';
+            break;
+        case 'bold_caps':
+            previewText.classList.add('bold-caps');
+            previewText.innerHTML = '<span class="highlight">THIS</span> IS HOW CAPTIONS WILL APPEAR';
+            break;
+        case 'none':
+            previewText.classList.add('no-captions');
+            previewText.innerHTML = 'No captions will be shown';
+            break;
+    }
+}
 
 
 // ============================================
@@ -162,33 +207,69 @@ function checkFormValidity() {
     elements.generateBtn.disabled = !isValid;
 }
 
-function displayImagePreviews(files) {
+function displayImagePreviews(files, sequences = []) {
     // Clear existing previews
     elements.imagePreviewContainer.innerHTML = '';
 
-    // Create preview for each image
+    if (files.length === 0) return;
+
+    // If no sequences provided, generate them
+    if (sequences.length === 0) {
+        sequences = files.map((_, i) => i + 1);
+    }
+
+    // Find the range of sequences to display (from 1 to max)
+    const maxSequence = Math.max(...sequences);
+    const sequenceMap = new Map();
+
+    // Map sequence numbers to files
     files.forEach((file, index) => {
-        const reader = new FileReader();
+        sequenceMap.set(sequences[index], file);
+    });
 
-        reader.onload = (e) => {
-            const previewItem = document.createElement('div');
-            previewItem.className = 'image-preview-item';
+    // Create preview for each position from 1 to max
+    for (let seq = 1; seq <= maxSequence; seq++) {
+        const file = sequenceMap.get(seq);
+        const previewItem = document.createElement('div');
+        previewItem.className = 'image-preview-item';
 
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.alt = `Image ${index + 1}`;
+        if (file) {
+            // File exists for this sequence
+            const reader = new FileReader();
+            const currentSeq = seq;
+
+            reader.onload = (e) => {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = `Image ${currentSeq}`;
+                previewItem.insertBefore(img, previewItem.firstChild);
+            };
+
+            reader.readAsDataURL(file);
 
             const numberBadge = document.createElement('div');
             numberBadge.className = 'image-preview-number';
-            numberBadge.textContent = index + 1;
+            numberBadge.textContent = seq;
 
-            previewItem.appendChild(img);
             previewItem.appendChild(numberBadge);
-            elements.imagePreviewContainer.appendChild(previewItem);
-        };
+        } else {
+            // Missing file - highlight in red
+            previewItem.classList.add('missing');
 
-        reader.readAsDataURL(file);
-    });
+            const missingPlaceholder = document.createElement('div');
+            missingPlaceholder.className = 'missing-placeholder';
+            missingPlaceholder.textContent = '?';
+
+            const numberBadge = document.createElement('div');
+            numberBadge.className = 'image-preview-number missing';
+            numberBadge.textContent = seq;
+
+            previewItem.appendChild(missingPlaceholder);
+            previewItem.appendChild(numberBadge);
+        }
+
+        elements.imagePreviewContainer.appendChild(previewItem);
+    }
 }
 
 function addLog(message, type = 'info') {
@@ -223,17 +304,23 @@ elements.clearBtn.addEventListener('click', () => {
         transcript: null,
         audio: null,
         images: [],
+        imageSequences: [],
         videos: []
     };
     state.scenes = [];
     state.sceneConfig = { scenes: {} };
     state.transitionSounds = {};
+    state.captionStyle = 'default';
 
     // Reset file inputs
     elements.transcriptFile.value = '';
     elements.audioFile.value = '';
     elements.imageFiles.value = '';
     elements.videoFiles.value = '';
+
+    // Reset caption style
+    elements.captionStyle.value = 'default';
+    updateCaptionPreview('default');
 
     // Reset status displays
     elements.transcriptStatus.textContent = '';
@@ -291,6 +378,7 @@ elements.generateBtn.addEventListener('click', async () => {
         const formData = new FormData();
         formData.append('transcript', state.files.transcript);
         formData.append('audio', state.files.audio);
+        formData.append('caption_style', state.captionStyle);
 
         // Add images with proper naming
         state.files.images.forEach((file, index) => {
@@ -298,6 +386,7 @@ elements.generateBtn.addEventListener('click', async () => {
         });
 
         addLog(`Uploading ${state.files.images.length} images...`, 'info');
+        addLog(`Caption style: ${state.captionStyle === 'none' ? 'No captions' : state.captionStyle === 'bold_caps' ? 'Bold CAPS' : 'Default (Word Highlighting)'}`, 'info');
 
         // Add scene videos if any are configured
         let videoSceneCount = 0;
@@ -751,8 +840,14 @@ const rmElements = {
     logsContent: document.getElementById('rmLogsContent'),
     clearLogsBtn: document.getElementById('rmClearLogsBtn'),
     resultContainer: document.getElementById('rmResultContainer'),
-    downloadLink: document.getElementById('rmDownloadLink')
+    downloadLink: document.getElementById('rmDownloadLink'),
+    noTransitions: document.getElementById('rmNoTransitions')
 };
+
+// No Transitions checkbox handler
+rmElements.noTransitions.addEventListener('change', (e) => {
+    rmState.noTransitions = e.target.checked;
+});
 
 // ============================================
 // Regional Mix - File Upload Handlers
@@ -1009,9 +1104,11 @@ rmElements.clearBtn.addEventListener('click', () => {
     rmState.mediaFiles = [];
     rmState.audioFiles = [];
     rmState.matchedPairs = [];
+    rmState.noTransitions = false;
 
     rmElements.imageFiles.value = '';
     rmElements.audioFiles.value = '';
+    rmElements.noTransitions.checked = false;
     rmElements.imagesStatus.textContent = '';
     rmElements.imagesStatus.className = 'file-status';
     rmElements.audioStatus.textContent = '';
@@ -1136,7 +1233,13 @@ rmElements.generateBtn.addEventListener('click', async () => {
         }));
         formData.append('pair_info', JSON.stringify(pairInfo));
 
+        // Add no-transitions setting
+        formData.append('no_transitions', rmState.noTransitions ? 'true' : 'false');
+
         rmAddLog(`Uploading ${validPairs.length} media files and ${validPairs.length} audio files...`, 'info');
+        if (rmState.noTransitions) {
+            rmAddLog('Transitions disabled - clips will be directly concatenated', 'info');
+        }
         rmUpdateProgress(10, 'Uploading files...');
 
         const response = await fetch('/api/regional-mix', {

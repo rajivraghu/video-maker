@@ -12,6 +12,7 @@ import tempfile
 import shutil
 import os
 import time
+import math
 
 app = Flask(__name__, static_folder='webapp', static_url_path='')
 CORS(app)
@@ -263,6 +264,9 @@ def regional_mix():
         pair_info_json = request.form.get('pair_info', '[]')
         pair_info = json.loads(pair_info_json)
 
+        # Get no_transitions setting
+        no_transitions = request.form.get('no_transitions', 'false') == 'true'
+
         # Extract media and audio files
         media_files = {}
         media_types = {}
@@ -345,6 +349,8 @@ def regional_mix():
                 video_count = sum(1 for p in saved_pairs if p['mediaType'] == 'video')
 
                 yield f"data: {json.dumps({'type': 'log', 'message': f'Processing {pair_count} pairs ({image_count} images, {video_count} videos)'})}\n\n"
+                if no_transitions:
+                    yield f"data: {json.dumps({'type': 'log', 'message': 'Transitions disabled - direct cut between clips'})}\n\n"
                 yield f"data: {json.dumps({'type': 'progress', 'percentage': 15, 'message': 'Creating video clips...'})}\n\n"
 
                 # Create individual video clips for each pair
@@ -378,8 +384,8 @@ def regional_mix():
                     # Create video clip
                     clip_path = str(clip_dir / f'clip_{num}.mp4')
 
-                    # Calculate fade duration (max 0.5s or 10% of duration)
-                    fade_duration = min(0.5, audio_duration * 0.1)
+                    # Calculate fade duration (max 0.5s or 10% of duration) - only used if transitions enabled
+                    fade_duration = 0 if no_transitions else min(0.5, audio_duration * 0.1)
 
                     if media_type == 'video':
                         # For video: mute original audio, trim to audio duration, add new audio
@@ -401,6 +407,14 @@ def regional_mix():
                         # If video is shorter than audio, freeze the last frame
                         if video_duration >= audio_duration:
                             # Video is longer or equal - just trim
+                            # Build video filter - with or without fade
+                            # IMPORTANT: Add fps=30 to match image clips for proper concat
+                            vf_base = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30'
+                            if no_transitions:
+                                vf_filter = vf_base
+                            else:
+                                vf_filter = f'{vf_base},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
+
                             ffmpeg_cmd = [
                                 'ffmpeg', '-y',
                                 '-i', media_path,
@@ -408,20 +422,32 @@ def regional_mix():
                                 '-map', '0:v',  # Take video from first input
                                 '-map', '1:a',  # Take audio from second input
                                 '-c:v', 'libx264',
+                                '-preset', 'medium',
+                                '-crf', '18',
                                 '-c:a', 'aac',
                                 '-b:a', '192k',
                                 '-pix_fmt', 'yuv420p',
-                                '-vf', f'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}',
+                                '-vf', vf_filter,
                                 '-t', str(audio_duration),
-                                '-shortest',
                                 clip_path
                             ]
                         else:
-                            # Video is shorter - freeze the last frame to fill remaining time
+                            # Video is shorter - use tpad to freeze last frame (simple & reliable)
                             freeze_duration = audio_duration - video_duration
                             yield f"data: {json.dumps({'type': 'log', 'message': f'  Video shorter than audio, freezing last frame for {freeze_duration:.2f}s...'})}\n\n"
 
-                            # Use tpad filter to freeze last frame
+                            # Use tpad filter to extend video by freezing the last frame
+                            # This is much simpler and more reliable than zoompan
+                            # IMPORTANT: Add fps=30 to match image clips for proper concat
+                            vf_base = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30'
+
+                            if no_transitions:
+                                # Simple: scale, pad, freeze last frame
+                                vf_filter = f'{vf_base},tpad=stop_mode=clone:stop_duration={freeze_duration}'
+                            else:
+                                # With fade effects
+                                vf_filter = f'{vf_base},tpad=stop_mode=clone:stop_duration={freeze_duration},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
+
                             ffmpeg_cmd = [
                                 'ffmpeg', '-y',
                                 '-i', media_path,
@@ -429,54 +455,47 @@ def regional_mix():
                                 '-map', '0:v',
                                 '-map', '1:a',
                                 '-c:v', 'libx264',
+                                '-preset', 'medium',
+                                '-crf', '18',
                                 '-c:a', 'aac',
                                 '-b:a', '192k',
                                 '-pix_fmt', 'yuv420p',
-                                '-vf', f'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,tpad=stop_mode=clone:stop_duration={freeze_duration},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}',
+                                '-vf', vf_filter,
                                 '-t', str(audio_duration),
-                                '-shortest',
                                 clip_path
                             ]
                     else:
-                        # For image: create video with smooth zoom-out effect (Ken Burns)
-                        # Use 30fps for smooth animation
+                        # For image: create video with exact duration matching audio
                         fps = 30
-                        total_frames = int(audio_duration * fps)
 
-                        # Smooth Ken Burns zoom-out effect:
-                        # - Scale up source image first for high quality zoom
-                        # - Start at 1.12x zoom, smoothly decrease to 1.0x
-                        # - Use d=total_frames so the entire animation spans the clip
-                        # - Center the zoom on the image
-                        zoom_start = 1.12
-                        zoom_end = 1.0
-                        zoom_diff = zoom_start - zoom_end
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'  Creating image clip at {fps}fps for {audio_duration:.3f}s'})}\n\n"
 
-                        # zoompan filter with smooth linear interpolation
-                        # d=total_frames means we generate all frames from this single image
-                        # on = current output frame number (0 to total_frames-1)
-                        zoom_filter = (
-                            f"scale=8000:-1,"  # Scale up source for quality
-                            f"zoompan=z='{zoom_start}-{zoom_diff}*on/{total_frames}':"
-                            f"x='iw/2-(iw/zoom/2)':"
-                            f"y='ih/2-(ih/zoom/2)':"
-                            f"d={total_frames}:"
-                            f"s=1920x1080:"
-                            f"fps={fps}"
-                        )
+                        # Simple static image - scale to 1920x1080 with padding
+                        vf_base = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30'
 
+                        # Build video filter - with or without fade
+                        if no_transitions:
+                            vf_filter = vf_base
+                        else:
+                            vf_filter = f'{vf_base},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
+
+                        # Use -loop 1 to loop the image, -t for duration
                         ffmpeg_cmd = [
                             'ffmpeg', '-y',
+                            '-loop', '1',
                             '-i', media_path,
                             '-i', aud_path,
+                            '-map', '0:v',
+                            '-map', '1:a',
                             '-c:v', 'libx264',
                             '-preset', 'medium',
                             '-crf', '18',
                             '-c:a', 'aac',
                             '-b:a', '192k',
                             '-pix_fmt', 'yuv420p',
-                            '-vf', f'{zoom_filter},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}',
+                            '-vf', vf_filter,
                             '-t', str(audio_duration),
+                            '-shortest',
                             clip_path
                         ]
 
@@ -487,28 +506,79 @@ def regional_mix():
                         yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to create clip for pair {num}'})}\n\n"
                         return
 
-                    temp_clips.append(clip_path)
-                    yield f"data: {json.dumps({'type': 'log', 'message': f'  Clip created successfully'})}\n\n"
+                    # Verify clip was created and get its duration
+                    if os.path.exists(clip_path):
+                        clip_duration_cmd = [
+                            'ffprobe', '-v', 'error', '-show_entries',
+                            'format=duration', '-of',
+                            'default=noprint_wrappers=1:nokey=1', clip_path
+                        ]
+                        clip_dur_result = subprocess.run(clip_duration_cmd, capture_output=True, text=True)
+                        try:
+                            actual_clip_duration = float(clip_dur_result.stdout.strip())
+                            duration_diff = abs(actual_clip_duration - audio_duration)
+
+                            # Check if duration matches within tolerance (0.05 seconds = 50ms)
+                            if duration_diff > 0.05:
+                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ Clip duration mismatch: {actual_clip_duration:.3f}s vs expected {audio_duration:.3f}s (diff: {duration_diff:.3f}s)', 'level': 'warning'})}\n\n"
+                            else:
+                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ✓ Clip created: {actual_clip_duration:.3f}s (expected {audio_duration:.3f}s)'})}\n\n"
+                            temp_clips.append(clip_path)
+                        except ValueError:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ Warning: Could not read clip duration', 'level': 'warning'})}\n\n"
+                            temp_clips.append(clip_path)
+                    else:
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'  ❌ ERROR: Clip file not found at {clip_path}', 'level': 'error'})}\n\n"
 
                 yield f"data: {json.dumps({'type': 'progress', 'percentage': 70, 'message': 'Concatenating clips...'})}\n\n"
-                yield f"data: {json.dumps({'type': 'log', 'message': 'Concatenating all clips into final video...'})}\n\n"
+
+                # Calculate expected total duration from all audio files
+                total_expected_duration = 0
+                for pair in saved_pairs:
+                    aud_path = pair['audio']
+                    dur_cmd = ['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', aud_path]
+                    dur_result = subprocess.run(dur_cmd, capture_output=True, text=True)
+                    try:
+                        total_expected_duration += float(dur_result.stdout.strip())
+                    except ValueError:
+                        pass
+
+                yield f"data: {json.dumps({'type': 'log', 'message': f'Expected total duration: {total_expected_duration:.3f}s'})}\n\n"
+                yield f"data: {json.dumps({'type': 'log', 'message': f'Concatenating {len(temp_clips)} clips into final video...'})}\n\n"
+
+                # Validate all clips exist before concatenation
+                valid_clips = []
+                for clip_path in temp_clips:
+                    if os.path.exists(clip_path) and os.path.getsize(clip_path) > 0:
+                        valid_clips.append(clip_path)
+                    else:
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ Skipping invalid/empty clip: {clip_path}', 'level': 'warning'})}\n\n"
+
+                if len(valid_clips) != len(temp_clips):
+                    yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ Only {len(valid_clips)} of {len(temp_clips)} clips are valid', 'level': 'warning'})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'log', 'message': f'  Valid clips to concatenate: {len(valid_clips)}'})}\n\n"
 
                 # Create concat file
                 concat_file = rm_input_dir / 'concat.txt'
                 with open(concat_file, 'w') as f:
-                    for clip_path in temp_clips:
+                    for clip_path in valid_clips:
                         f.write(f"file '{clip_path}'\n")
 
-                # Concatenate all clips (need to re-encode for compatibility)
+                # Log what we're concatenating
+                for i, clip_path in enumerate(valid_clips):
+                    clip_name = os.path.basename(clip_path)
+                    yield f"data: {json.dumps({'type': 'log', 'message': f'  [{i+1}/{len(valid_clips)}] {clip_name}'})}\n\n"
+
+                # Concatenate all clips using stream copy (preserves exact durations)
+                # All clips now have identical params: fps=30, 1920x1080, libx264, yuv420p
                 final_video = output_dir / 'final_video.mp4'
                 concat_cmd = [
                     'ffmpeg', '-y',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', str(concat_file),
-                    '-c:v', 'libx264',
-                    '-c:a', 'aac',
-                    '-b:a', '192k',
+                    '-c', 'copy',  # Stream copy preserves exact timing
                     str(final_video)
                 ]
 
@@ -520,6 +590,25 @@ def regional_mix():
                     return
 
                 yield f"data: {json.dumps({'type': 'progress', 'percentage': 95, 'message': 'Finalizing video...'})}\n\n"
+
+                # Log final video duration and compare against expected
+                if final_video.exists():
+                    final_dur_cmd = [
+                        'ffprobe', '-v', 'error', '-show_entries',
+                        'format=duration', '-of',
+                        'default=noprint_wrappers=1:nokey=1', str(final_video)
+                    ]
+                    final_dur_result = subprocess.run(final_dur_cmd, capture_output=True, text=True)
+                    try:
+                        final_duration = float(final_dur_result.stdout.strip())
+                        duration_drift = final_duration - total_expected_duration
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'Final video duration: {final_duration:.3f}s (expected: {total_expected_duration:.3f}s)'})}\n\n"
+                        if abs(duration_drift) > 0.1:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'⚠ Duration drift detected: {duration_drift:+.3f}s', 'level': 'warning'})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'✓ Duration sync OK (drift: {duration_drift:+.3f}s)'})}\n\n"
+                    except ValueError:
+                        pass
 
                 # Check if output file exists
                 if final_video.exists():

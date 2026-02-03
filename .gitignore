@@ -68,3 +68,11 @@ models/
 
 # Logs
 *.log
+
+# Media and text files (global ignore)
+*.jpeg
+*.mp4
+*.png
+*.mp3
+*.wav
+*.txt

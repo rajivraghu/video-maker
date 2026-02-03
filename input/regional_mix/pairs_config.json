@@ -1,0 +1,224 @@
+[
+  {
+    "number": 1,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/1.mp4",
+    "mediaType": "video",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/1.wav"
+  },
+  {
+    "number": 2,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/2.mp4",
+    "mediaType": "video",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/2.wav"
+  },
+  {
+    "number": 3,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/3.mp4",
+    "mediaType": "video",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/3.wav"
+  },
+  {
+    "number": 4,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/4.mp4",
+    "mediaType": "video",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/4.wav"
+  },
+  {
+    "number": 5,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/5.mp4",
+    "mediaType": "video",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/5.wav"
+  },
+  {
+    "number": 6,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/6.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/6.wav"
+  },
+  {
+    "number": 7,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/7.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/7.wav"
+  },
+  {
+    "number": 8,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/8.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/8.wav"
+  },
+  {
+    "number": 9,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/9.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/9.wav"
+  },
+  {
+    "number": 10,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/10.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/10.wav"
+  },
+  {
+    "number": 11,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/11.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/11.wav"
+  },
+  {
+    "number": 12,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/12.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/12.wav"
+  },
+  {
+    "number": 13,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/13.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/13.wav"
+  },
+  {
+    "number": 14,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/14.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/14.wav"
+  },
+  {
+    "number": 15,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/15.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/15.wav"
+  },
+  {
+    "number": 16,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/16.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/16.wav"
+  },
+  {
+    "number": 17,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/17.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/17.wav"
+  },
+  {
+    "number": 18,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/18.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/18.wav"
+  },
+  {
+    "number": 19,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/19.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/19.wav"
+  },
+  {
+    "number": 20,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/20.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/20.wav"
+  },
+  {
+    "number": 21,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/21.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/21.wav"
+  },
+  {
+    "number": 22,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/22.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/22.wav"
+  },
+  {
+    "number": 23,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/23.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/23.wav"
+  },
+  {
+    "number": 24,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/24.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/24.wav"
+  },
+  {
+    "number": 25,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/25.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/25.wav"
+  },
+  {
+    "number": 26,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/26.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/26.wav"
+  },
+  {
+    "number": 27,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/27.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/27.wav"
+  },
+  {
+    "number": 28,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/28.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/28.wav"
+  },
+  {
+    "number": 29,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/29.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/29.wav"
+  },
+  {
+    "number": 30,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/30.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/30.wav"
+  },
+  {
+    "number": 31,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/31.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/31.wav"
+  },
+  {
+    "number": 32,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/32.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/32.wav"
+  },
+  {
+    "number": 33,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/33.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/33.wav"
+  },
+  {
+    "number": 34,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/34.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/34.wav"
+  },
+  {
+    "number": 35,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/35.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/35.wav"
+  },
+  {
+    "number": 36,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/36.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/36.wav"
+  },
+  {
+    "number": 37,
+    "media": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/media/37.jpeg",
+    "mediaType": "image",
+    "audio": "/Users/rajivraghu/workspace/video_maker/video_maker/input/regional_mix/audio/37.wav"
+  }
+]
