@@ -467,22 +467,41 @@ def regional_mix():
                     else:
                         # For image: create video with exact duration matching audio
                         fps = 30
+                        total_frames = int(audio_duration * fps) + 1
 
                         yield f"data: {json.dumps({'type': 'log', 'message': f'  Creating image clip at {fps}fps for {audio_duration:.3f}s'})}\n\n"
 
-                        # Simple static image - scale to 1920x1080 with padding
-                        vf_base = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,fps=30'
+                        # Smooth subtle zoom-in effect (3% total zoom over clip duration)
+                        # Using high source resolution + smooth interpolation
+                        zoom_start = 1.0
+                        zoom_end = 1.03
+
+                        # Smooth zoom expression - interpolates over total frames
+                        zoom_expr = f"{zoom_start}+({zoom_end}-{zoom_start})*(on/{total_frames})"
+
+                        # Build zoompan filter with smooth settings
+                        # - Scale source to 8K for maximum interpolation quality
+                        # - Use bilinear for smooth sub-pixel rendering
+                        # - Center the zoom point
+                        zoom_filter = (
+                            f"scale=7680:-1:flags=bilinear,"
+                            f"zoompan=z='{zoom_expr}':"
+                            f"x='iw/2-(iw/zoom/2)':"
+                            f"y='ih/2-(ih/zoom/2)':"
+                            f"d={total_frames}:"
+                            f"s=1920x1080:"
+                            f"fps={fps}"
+                        )
 
                         # Build video filter - with or without fade
                         if no_transitions:
-                            vf_filter = vf_base
+                            vf_filter = zoom_filter
                         else:
-                            vf_filter = f'{vf_base},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
+                            vf_filter = f'{zoom_filter},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                        # Use -loop 1 to loop the image, -t for duration
+                        # Use zoompan to create the clip
                         ffmpeg_cmd = [
                             'ffmpeg', '-y',
-                            '-loop', '1',
                             '-i', media_path,
                             '-i', aud_path,
                             '-map', '0:v',
@@ -495,7 +514,6 @@ def regional_mix():
                             '-pix_fmt', 'yuv420p',
                             '-vf', vf_filter,
                             '-t', str(audio_duration),
-                            '-shortest',
                             clip_path
                         ]
 
