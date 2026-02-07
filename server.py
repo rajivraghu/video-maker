@@ -713,7 +713,8 @@ def transcribe_youtube():
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                         yield f"data: {json.dumps({'type': 'log', 'message': 'Fetching video information...'})}\n\n"
                         info = ydl.extract_info(youtube_url, download=True)
-                        yield f"data: {json.dumps({'type': 'log', 'message': f'✓ Downloaded: {info.get(\"title\", \"video\")}'})}\n\n"
+                        video_title = info.get('title', 'video')
+                        yield f"data: {json.dumps({'type': 'log', 'message': '✓ Downloaded: ' + video_title})}\n\n"
                 except Exception as download_error:
                     error_msg = str(download_error)
                     # Provide helpful error message
