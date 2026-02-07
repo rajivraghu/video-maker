@@ -673,9 +673,9 @@ def transcribe_youtube():
                 temp_dir = tempfile.mkdtemp()
                 audio_path = os.path.join(temp_dir, 'audio.mp3')
 
-                # Download YouTube audio using yt-dlp with proper headers
+                # Download YouTube audio using yt-dlp with enhanced configuration
                 ydl_opts = {
-                    'format': 'bestaudio/best',
+                    'format': 'bestaudio[ext=m4a]/bestaudio/best',
                     'postprocessors': [{
                         'key': 'FFmpegExtractAudio',
                         'preferredcodec': 'mp3',
@@ -684,20 +684,36 @@ def transcribe_youtube():
                     'outtmpl': os.path.join(temp_dir, 'audio.%(ext)s'),
                     'quiet': False,
                     'no_warnings': False,
-                    # Add proper headers to avoid 403 errors
+                    # Add proper headers and configuration
                     'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+                        'Accept-Language': 'en-US,en;q=0.9',
                     },
                     'socket_timeout': 30,
-                    'retries': 3,
-                    'fragment_retries': 3,
+                    'retries': {'max_retries': 5, 'backoff_factor': 0.1},
+                    'fragment_retries': 5,
+                    'skip_unavailable_fragments': True,
+                    'extractor_args': {
+                        'youtube': {
+                            'player_client': ['web'],
+                            'player_skip': ['js', 'configs']
+                        }
+                    }
                 }
 
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        ydl.download([youtube_url])
+                        yield f"data: {json.dumps({'type': 'log', 'message': 'Fetching video information...'})}\n\n"
+                        info = ydl.extract_info(youtube_url, download=True)
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'✓ Downloaded: {info.get(\"title\", \"video\")}'})}\n\n"
                 except Exception as download_error:
-                    yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to download YouTube audio: {str(download_error)}'})}\n\n"
+                    error_msg = str(download_error)
+                    # Provide helpful error message
+                    if '403' in error_msg or 'Forbidden' in error_msg:
+                        help_msg = 'YouTube blocked the download. This may be due to: geographic restrictions, account verification required, or video access limitations. Try: 1) Using a VPN, 2) Logging into YouTube in your browser, or 3) Testing with a different public video.'
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'YouTube Download Blocked: {help_msg}'})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to download YouTube audio: {error_msg}'})}\n\n"
                     shutil.rmtree(temp_dir)
                     return
 
