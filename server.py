@@ -661,7 +661,7 @@ def transcribe_youtube():
 
         def generate():
             try:
-                import yt_dlp
+                from pytubefix import YouTube
                 from faster_whisper import WhisperModel
                 import tempfile
                 import shutil
@@ -671,58 +671,55 @@ def transcribe_youtube():
 
                 # Create temp directory
                 temp_dir = tempfile.mkdtemp()
-                audio_path = os.path.join(temp_dir, 'audio.mp3')
-
-                # Check if cookies file exists for YouTube authentication
-                cookies_path = os.path.expanduser('~/.config/yt-dlp/cookies.txt')
-
-                # Download YouTube audio using yt-dlp with enhanced configuration
-                ydl_opts = {
-                    'format': 'bestaudio[ext=m4a]/bestaudio/best',
-                    'postprocessors': [{
-                        'key': 'FFmpegExtractAudio',
-                        'preferredcodec': 'mp3',
-                        'preferredquality': '192',
-                    }],
-                    'outtmpl': os.path.join(temp_dir, 'audio.%(ext)s'),
-                    'quiet': False,
-                    'no_warnings': False,
-                    # Add proper headers and configuration
-                    'http_headers': {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-                        'Accept-Language': 'en-US,en;q=0.9',
-                    },
-                    'socket_timeout': 30,
-                    'retries': 5,
-                    'fragment_retries': 5,
-                    'skip_unavailable_fragments': True,
-                    'extractor_args': {
-                        'youtube': {
-                            'player_client': ['web', 'android'],
-                            'player_skip': ['js', 'configs']
-                        }
-                    }
-                }
-
-                # Use cookies if available (helps bypass YouTube blocks)
-                if os.path.exists(cookies_path):
-                    ydl_opts['cookiefile'] = cookies_path
-                    yield f"data: {json.dumps({'type': 'log', 'message': 'Using YouTube session cookies'})}\n\n"
+                video_dir = os.path.join(temp_dir, 'video')
+                os.makedirs(video_dir, exist_ok=True)
 
                 try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        yield f"data: {json.dumps({'type': 'log', 'message': 'Fetching video information...'})}\n\n"
-                        info = ydl.extract_info(youtube_url, download=True)
-                        video_title = info.get('title', 'video')
-                        yield f"data: {json.dumps({'type': 'log', 'message': '✓ Downloaded: ' + video_title})}\n\n"
+                    yield f"data: {json.dumps({'type': 'log', 'message': 'Fetching video information...'})}\n\n"
+
+                    # Download using pytubefix
+                    yt = YouTube(youtube_url)
+                    video_title = yt.title
+
+                    yield f"data: {json.dumps({'type': 'log', 'message': f'Video: {video_title}'})}\n\n"
+
+                    # Get the audio stream
+                    audio_stream = yt.streams.filter(only_audio=True).first()
+
+                    if audio_stream is None:
+                        yield f"data: {json.dumps({'type': 'error', 'message': 'No audio stream found for this video'})}\n\n"
+                        shutil.rmtree(temp_dir)
+                        return
+
+                    yield f"data: {json.dumps({'type': 'log', 'message': f'Downloading audio ({audio_stream.filesize / 1024 / 1024:.1f} MB)...'})}\n\n"
+
+                    # Download the audio
+                    downloaded_file = audio_stream.download(output_path=video_dir)
+
+                    # Convert to MP3 using FFmpeg
+                    audio_path = os.path.join(temp_dir, 'audio.mp3')
+                    yield f"data: {json.dumps({'type': 'log', 'message': 'Converting to MP3...'})}\n\n"
+
+                    ffmpeg_cmd = [
+                        'ffmpeg', '-y',
+                        '-i', downloaded_file,
+                        '-q:a', '5',
+                        '-map', 'a',
+                        audio_path
+                    ]
+
+                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+
+                    if result.returncode != 0:
+                        yield f"data: {json.dumps({'type': 'error', 'message': f'FFmpeg conversion failed: {result.stderr}'})}\n\n"
+                        shutil.rmtree(temp_dir)
+                        return
+
+                    yield f"data: {json.dumps({'type': 'log', 'message': '✓ Audio downloaded and converted successfully'})}\n\n"
+
                 except Exception as download_error:
                     error_msg = str(download_error)
-                    # Provide helpful error message
-                    if '403' in error_msg or 'Forbidden' in error_msg:
-                        help_msg = 'YouTube blocked the download. This may be due to: geographic restrictions, account verification required, or video access limitations. Try: 1) Using a VPN, 2) Logging into YouTube in your browser, or 3) Testing with a different public video.'
-                        yield f"data: {json.dumps({'type': 'error', 'message': f'YouTube Download Blocked: {help_msg}'})}\n\n"
-                    else:
-                        yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to download YouTube audio: {error_msg}'})}\n\n"
+                    yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to download YouTube audio: {error_msg}'})}\n\n"
                     shutil.rmtree(temp_dir)
                     return
 
