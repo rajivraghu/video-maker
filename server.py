@@ -673,7 +673,7 @@ def transcribe_youtube():
                 temp_dir = tempfile.mkdtemp()
                 audio_path = os.path.join(temp_dir, 'audio.mp3')
 
-                # Download YouTube audio using yt-dlp
+                # Download YouTube audio using yt-dlp with proper headers
                 ydl_opts = {
                     'format': 'bestaudio/best',
                     'postprocessors': [{
@@ -682,12 +682,24 @@ def transcribe_youtube():
                         'preferredquality': '192',
                     }],
                     'outtmpl': os.path.join(temp_dir, 'audio.%(ext)s'),
-                    'quiet': True,
-                    'no_warnings': True
+                    'quiet': False,
+                    'no_warnings': False,
+                    # Add proper headers to avoid 403 errors
+                    'http_headers': {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    },
+                    'socket_timeout': 30,
+                    'retries': 3,
+                    'fragment_retries': 3,
                 }
 
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([youtube_url])
+                try:
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([youtube_url])
+                except Exception as download_error:
+                    yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to download YouTube audio: {str(download_error)}'})}\n\n"
+                    shutil.rmtree(temp_dir)
+                    return
 
                 yield f"data: {json.dumps({'type': 'log', 'message': '✓ Audio downloaded successfully'})}\n\n"
                 yield f"data: {json.dumps({'type': 'progress', 'percentage': 40, 'message': 'Transcribing audio...'})}\n\n"
