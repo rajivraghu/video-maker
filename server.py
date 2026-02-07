@@ -351,9 +351,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 def escape_ffmpeg_path(path):
-    """Escape path for FFmpeg filters (Windows-safe)"""
-    path_str = str(path).replace('\\', '/').replace(':', '\\:')
-    return path_str
+    """Escape path for FFmpeg filters - quote and escape for filter syntax"""
+    # Convert to string and normalize path separators
+    path_str = str(path).replace('\\', '/')
+    # Escape single quotes and backslashes for FFmpeg filter syntax
+    path_str = path_str.replace("'", "\\'")
+    # Return quoted path for FFmpeg filter expressions
+    return f"'{path_str}'"
 
 
 @app.route('/api/regional-mix', methods=['POST'])
