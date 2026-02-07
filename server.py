@@ -693,7 +693,7 @@ def transcribe_youtube():
                         'Accept-Language': 'en-US,en;q=0.9',
                     },
                     'socket_timeout': 30,
-                    'retries': {'max_retries': 5, 'backoff_factor': 0.1},
+                    'retries': 5,
                     'fragment_retries': 5,
                     'skip_unavailable_fragments': True,
                     'extractor_args': {
