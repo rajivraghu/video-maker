@@ -351,13 +351,17 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 def escape_ffmpeg_path(path):
-    """Escape path for FFmpeg filters - quote and escape for filter syntax"""
+    """Escape path for FFmpeg filters - properly escape special characters"""
     # Convert to string and normalize path separators
     path_str = str(path).replace('\\', '/')
-    # Escape single quotes and backslashes for FFmpeg filter syntax
+    # For FFmpeg filter syntax, escape special characters
+    # Escape backslashes first
+    path_str = path_str.replace('\\', '\\\\')
+    # Escape single quotes
     path_str = path_str.replace("'", "\\'")
-    # Return quoted path for FFmpeg filter expressions
-    return f"'{path_str}'"
+    # Escape colons (important for filter syntax)
+    path_str = path_str.replace(':', '\\:')
+    return path_str
 
 
 @app.route('/api/regional-mix', methods=['POST'])
@@ -544,10 +548,11 @@ def regional_mix():
                             else:
                                 vf_filter = f'{vf_base},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                            # Add captions if enabled
+                            # Add captions if enabled (using subtitles filter instead of ass for better compatibility)
                             if ass_file and os.path.exists(ass_file):
-                                ass_path_escaped = escape_ffmpeg_path(ass_file)
-                                vf_filter = f"{vf_filter},ass={ass_path_escaped}"
+                                # Use subtitles filter with escaped path
+                                ass_path_for_filter = str(ass_file).replace("'", "\\'")
+                                vf_filter = f"{vf_filter},subtitles={ass_path_for_filter}"
 
                             ffmpeg_cmd = [
                                 'ffmpeg', '-y',
@@ -582,10 +587,11 @@ def regional_mix():
                                 # With fade effects
                                 vf_filter = f'{vf_base},tpad=stop_mode=clone:stop_duration={freeze_duration},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                            # Add captions if enabled
+                            # Add captions if enabled (using subtitles filter instead of ass for better compatibility)
                             if ass_file and os.path.exists(ass_file):
-                                ass_path_escaped = escape_ffmpeg_path(ass_file)
-                                vf_filter = f"{vf_filter},ass={ass_path_escaped}"
+                                # Use subtitles filter with escaped path
+                                ass_path_for_filter = str(ass_file).replace("'", "\\'")
+                                vf_filter = f"{vf_filter},subtitles={ass_path_for_filter}"
 
                             ffmpeg_cmd = [
                                 'ffmpeg', '-y',
