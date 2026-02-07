@@ -23,7 +23,8 @@ const rmState = {
     audioFiles: [],
     matchedPairs: [], // { number, media (file), mediaType ('image' or 'video'), audio (file) }
     isProcessing: false,
-    noTransitions: true  // When true, no fade effects between clips (default: enabled)
+    noTransitions: true,  // When true, no fade effects between clips (default: enabled)
+    captions: true  // When true, add captions to the video (default: enabled)
 };
 
 // Transcribe State
@@ -859,12 +860,18 @@ const rmElements = {
     clearLogsBtn: document.getElementById('rmClearLogsBtn'),
     resultContainer: document.getElementById('rmResultContainer'),
     downloadLink: document.getElementById('rmDownloadLink'),
-    noTransitions: document.getElementById('rmNoTransitions')
+    noTransitions: document.getElementById('rmNoTransitions'),
+    captions: document.getElementById('rmCaptions')
 };
 
 // No Transitions checkbox handler
 rmElements.noTransitions.addEventListener('change', (e) => {
     rmState.noTransitions = e.target.checked;
+});
+
+// Captions checkbox handler
+rmElements.captions.addEventListener('change', (e) => {
+    rmState.captions = e.target.checked;
 });
 
 // ============================================
@@ -1254,9 +1261,15 @@ rmElements.generateBtn.addEventListener('click', async () => {
         // Add no-transitions setting
         formData.append('no_transitions', rmState.noTransitions ? 'true' : 'false');
 
+        // Add captions setting
+        formData.append('captions', rmState.captions ? 'true' : 'false');
+
         rmAddLog(`Uploading ${validPairs.length} media files and ${validPairs.length} audio files...`, 'info');
         if (rmState.noTransitions) {
             rmAddLog('Transitions disabled - clips will be directly concatenated', 'info');
+        }
+        if (rmState.captions) {
+            rmAddLog('Captions enabled - audio will be transcribed to English', 'info');
         }
         rmUpdateProgress(10, 'Uploading files...');
 

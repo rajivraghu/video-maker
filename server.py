@@ -256,6 +256,106 @@ def clear_files():
         return jsonify({'error': str(e)}), 500
 
 
+# ============================================
+# Regional Mix Caption Helpers
+# ============================================
+def transcribe_audio_to_words(audio_path):
+    """Transcribe audio file and return word-level timestamps in uppercase"""
+    from faster_whisper import WhisperModel
+
+    model = WhisperModel("base", device="cpu", compute_type="int8")
+    segments, info = model.transcribe(audio_path, word_timestamps=True, language="en")
+
+    all_words = []
+    for segment in segments:
+        if segment.words:
+            for word in segment.words:
+                all_words.append({
+                    'word': word.word.strip().upper(),  # Convert to uppercase
+                    'start': word.start,
+                    'end': word.end
+                })
+
+    return all_words
+
+
+def format_ass_time(seconds):
+    """Convert seconds to ASS timestamp format (H:MM:SS.CS)"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    centiseconds = int((seconds % 1) * 100)
+    return f"{hours}:{minutes:02d}:{secs:02d}.{centiseconds:02d}"
+
+
+def generate_ass_captions(words, output_path, video_width=1920, video_height=1080):
+    """Generate ASS subtitle file with karaoke-style word highlighting (ALL CAPS, bold yellow)"""
+
+    # Font and style settings
+    FONT_NAME = "Poppins"
+    FONT_SIZE = 48
+    FONT_COLOR = "&H00FFFFFF"        # White
+    OUTLINE_COLOR = "&H00000000"     # Black outline
+    OUTLINE_WIDTH = 4                # Thicker for bold caps
+    SHADOW_DEPTH = 2
+    MARGIN_BOTTOM = 60
+    CAPTION_ALIGNMENT = 2
+    WORDS_PER_LINE = 6
+
+    # Create ASS header with bold styling
+    ass_content = f"""[Script Info]
+Title: Regional Mix Captions
+ScriptType: v4.00+
+PlayResX: {video_width}
+PlayResY: {video_height}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,{FONT_NAME},{FONT_SIZE},{FONT_COLOR},&H000000FF,{OUTLINE_COLOR},&H80000000,-1,0,0,0,100,100,0,0,1,{OUTLINE_WIDTH},{SHADOW_DEPTH},{CAPTION_ALIGNMENT},40,40,{MARGIN_BOTTOM},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
+
+    # Group words into chunks
+    chunks = []
+    for i in range(0, len(words), WORDS_PER_LINE):
+        chunk = words[i:i + WORDS_PER_LINE]
+        chunks.append(chunk)
+
+    # Generate dialogue events with karaoke effect
+    for chunk in chunks:
+        # Create one event per word in the chunk (for karaoke effect)
+        for word_idx, current_word in enumerate(chunk):
+            start_time = format_ass_time(current_word['start'])
+            end_time = format_ass_time(current_word['end'])
+
+            # Build caption with current word highlighted in yellow
+            caption_parts = []
+            for j, w in enumerate(chunk):
+                word_text = w['word']
+                if j == word_idx:
+                    # Current word - yellow highlight
+                    caption_parts.append(f"{{\\c&H00FFFF&}}{word_text}{{\\c&HFFFFFF&}}")
+                else:
+                    # Other words - white
+                    caption_parts.append(word_text)
+
+            caption_text = " ".join(caption_parts)
+            ass_content += f"Dialogue: 0,{start_time},{end_time},Default,,0,0,0,,{caption_text}\n"
+
+    # Write ASS file
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(ass_content)
+
+
+def escape_ffmpeg_path(path):
+    """Escape path for FFmpeg filters (Windows-safe)"""
+    path_str = str(path).replace('\\', '/').replace(':', '\\:')
+    return path_str
+
+
 @app.route('/api/regional-mix', methods=['POST'])
 def regional_mix():
     """Handle Regional Mix video generation request with images and videos"""
@@ -266,6 +366,9 @@ def regional_mix():
 
         # Get no_transitions setting
         no_transitions = request.form.get('no_transitions', 'false') == 'true'
+
+        # Get captions setting
+        captions_enabled = request.form.get('captions', 'true') == 'true'
 
         # Extract media and audio files
         media_files = {}
@@ -381,6 +484,28 @@ def regional_mix():
 
                     yield f"data: {json.dumps({'type': 'log', 'message': f'  Audio duration: {audio_duration:.2f}s'})}\n\n"
 
+                    # If captions enabled, transcribe audio and generate ASS file
+                    ass_file = None
+                    if captions_enabled:
+                        try:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  Transcribing audio for pair {num}...'})}\n\n"
+
+                            # Transcribe audio
+                            words = transcribe_audio_to_words(aud_path)
+
+                            if words:
+                                # Generate ASS subtitle file
+                                ass_file = str(clip_dir / f'subtitle_{num}.ass')
+                                generate_ass_captions(words, ass_file)
+
+                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ✓ Generated captions ({len(words)} words)'})}\n\n"
+                            else:
+                                yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ No words detected in audio'})}\n\n"
+
+                        except Exception as caption_error:
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ Caption generation failed: {str(caption_error)}'})}\n\n"
+                            ass_file = None
+
                     # Create video clip
                     clip_path = str(clip_dir / f'clip_{num}.mp4')
 
@@ -415,6 +540,11 @@ def regional_mix():
                             else:
                                 vf_filter = f'{vf_base},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
+                            # Add captions if enabled
+                            if ass_file and os.path.exists(ass_file):
+                                ass_path_escaped = escape_ffmpeg_path(ass_file)
+                                vf_filter = f"{vf_filter},ass={ass_path_escaped}"
+
                             ffmpeg_cmd = [
                                 'ffmpeg', '-y',
                                 '-i', media_path,
@@ -447,6 +577,11 @@ def regional_mix():
                             else:
                                 # With fade effects
                                 vf_filter = f'{vf_base},tpad=stop_mode=clone:stop_duration={freeze_duration},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
+
+                            # Add captions if enabled
+                            if ass_file and os.path.exists(ass_file):
+                                ass_path_escaped = escape_ffmpeg_path(ass_file)
+                                vf_filter = f"{vf_filter},ass={ass_path_escaped}"
 
                             ffmpeg_cmd = [
                                 'ffmpeg', '-y',
@@ -498,6 +633,11 @@ def regional_mix():
                             vf_filter = zoom_filter
                         else:
                             vf_filter = f'{zoom_filter},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
+
+                        # Add captions if enabled
+                        if ass_file and os.path.exists(ass_file):
+                            ass_path_escaped = escape_ffmpeg_path(ass_file)
+                            vf_filter = f"{vf_filter},ass={ass_path_escaped}"
 
                         # Use zoompan to create the clip
                         ffmpeg_cmd = [
