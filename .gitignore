@@ -7,16 +7,7 @@ output/*.json
 output/*.txt
 
 # Input files (user's personal content)
-input/audio.mp3
-input/audio.wav
-input/audio.m4a
-input/transcript.txt
-input/images/*.png
-input/images/*.jpg
-input/images/*.jpeg
-
-# Keep directory structure
-!input/images/PLACE_IMAGES_HERE.txt
+input/
 !output/.gitkeep
 
 # Python

@@ -20,7 +20,14 @@
       "Bash(for f in /Users/rajivraghu/workspace/video_maker/video_maker/input/videos/*.mp4)",
       "Bash(do echo \"Video: $f\")",
       "Bash(lsof:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(tree:*)",
+      "Bash(pip install:*)",
+      "Bash(pip3 install:*)",
+      "Bash(node -c:*)"
     ]
   }
 }

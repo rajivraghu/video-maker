@@ -26,6 +26,14 @@ const rmState = {
     noTransitions: true  // When true, no fade effects between clips (default: enabled)
 };
 
+// Transcribe State
+const transcribeState = {
+    youtubeUrl: '',
+    sourceLanguage: 'ta',
+    transcript: '',
+    isProcessing: false
+};
+
 // Helper to check if file is video
 function isVideoFile(file) {
     const videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv'];
@@ -818,6 +826,16 @@ function switchPage(page) {
         outputSection.style.display = 'none';
         regionalMixSection.style.display = 'block';
         rmOutputSection.style.display = rmState.isProcessing || document.getElementById('rmResultContainer').style.display === 'block' ? 'block' : 'none';
+        document.getElementById('transcribeSection').style.display = 'none';
+        document.getElementById('transcribeOutputSection').style.display = 'none';
+    } else if (page === 'transcribe') {
+        uploadSection.style.display = 'none';
+        sceneConfigSection.style.display = 'none';
+        outputSection.style.display = 'none';
+        regionalMixSection.style.display = 'none';
+        rmOutputSection.style.display = 'none';
+        document.getElementById('transcribeSection').style.display = 'block';
+        document.getElementById('transcribeOutputSection').style.display = transcribeState.isProcessing ? 'block' : 'none';
     }
 }
 
@@ -1319,6 +1337,129 @@ function showRMResult(videoUrl) {
 // Setup drag and drop for Regional Mix inputs
 setupDragAndDrop(rmElements.imageFiles, rmElements.imagesStatus, 'images');
 setupDragAndDrop(rmElements.audioFiles, rmElements.audioStatus, 'audio');
+
+// ============================================
+// Transcribe Feature
+// ============================================
+const transcribeElements = {
+    youtubeUrl: document.getElementById('youtubeUrl'),
+    sourceLanguage: document.getElementById('sourceLanguage'),
+    transcribeBtn: document.getElementById('transcribeBtn'),
+    transcribeOutputSection: document.getElementById('transcribeOutputSection'),
+    transcribeProgressContainer: document.getElementById('transcribeProgressContainer'),
+    transcribeProgressFill: document.getElementById('transcribeProgressFill'),
+    transcribeProgressText: document.getElementById('transcribeProgressText'),
+    transcriptContainer: document.getElementById('transcriptContainer'),
+    transcriptContent: document.getElementById('transcriptContent'),
+    transcribeLogsContent: document.getElementById('transcribeLogsContent'),
+    copyTranscriptBtn: document.getElementById('copyTranscriptBtn'),
+    downloadTranscriptBtn: document.getElementById('downloadTranscriptBtn')
+};
+
+// Transcribe button handler
+transcribeElements.transcribeBtn.addEventListener('click', async () => {
+    const url = transcribeElements.youtubeUrl.value.trim();
+    const language = transcribeElements.sourceLanguage.value;
+
+    if (!url) {
+        alert('Please enter a YouTube URL');
+        return;
+    }
+
+    if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+        alert('Please enter a valid YouTube URL');
+        return;
+    }
+
+    transcribeState.youtubeUrl = url;
+    transcribeState.sourceLanguage = language;
+    transcribeState.isProcessing = true;
+
+    // Show output section
+    transcribeElements.transcribeOutputSection.style.display = 'block';
+    transcribeElements.transcribeProgressContainer.style.display = 'block';
+    transcribeElements.transcriptContainer.style.display = 'none';
+    transcribeElements.transcribeLogsContent.innerHTML = '<div class="log-line">Starting transcription...</div>';
+
+    try {
+        const response = await fetch('/api/transcribe-youtube', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                url: url,
+                language: language
+            })
+        });
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.substring(6));
+
+                        if (data.type === 'log') {
+                            transcribeElements.transcribeLogsContent.innerHTML += `<div class="log-line">${data.message}</div>`;
+                            transcribeElements.transcribeLogsContent.scrollTop = transcribeElements.transcribeLogsContent.scrollHeight;
+                        } else if (data.type === 'progress') {
+                            transcribeElements.transcribeProgressFill.style.width = `${data.percentage}%`;
+                            transcribeElements.transcribeProgressText.textContent = data.message;
+                        } else if (data.type === 'complete') {
+                            transcribeState.transcript = data.transcript;
+                            transcribeElements.transcriptContent.textContent = data.transcript;
+                            transcribeElements.transcribeProgressContainer.style.display = 'none';
+                            transcribeElements.transcriptContainer.style.display = 'block';
+                        } else if (data.type === 'error') {
+                            alert('Error: ' + data.message);
+                            transcribeElements.transcribeProgressContainer.style.display = 'none';
+                        }
+                    } catch (e) {
+                        // Skip invalid JSON
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+        transcribeElements.transcribeProgressContainer.style.display = 'none';
+    } finally {
+        transcribeState.isProcessing = false;
+    }
+});
+
+// Copy transcript
+transcribeElements.copyTranscriptBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(transcribeState.transcript).then(() => {
+        const originalText = transcribeElements.copyTranscriptBtn.innerHTML;
+        transcribeElements.copyTranscriptBtn.innerHTML = '<span>✓ Copied!</span>';
+        setTimeout(() => {
+            transcribeElements.copyTranscriptBtn.innerHTML = originalText;
+        }, 2000);
+    });
+});
+
+// Download transcript
+transcribeElements.downloadTranscriptBtn.addEventListener('click', () => {
+    const blob = new Blob([transcribeState.transcript], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'transcript.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+});
 
 // ============================================
 // Initialize

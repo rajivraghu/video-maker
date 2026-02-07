@@ -651,6 +651,87 @@ def regional_mix():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/transcribe-youtube', methods=['POST'])
+def transcribe_youtube():
+    """Transcribe YouTube video audio to English text"""
+    try:
+        data = request.json
+        youtube_url = data.get('url')
+        source_language = data.get('language', 'ta')  # 'ta' for Tamil, 'te' for Telugu
+
+        def generate():
+            try:
+                import yt_dlp
+                from faster_whisper import WhisperModel
+                import tempfile
+                import shutil
+
+                yield f"data: {json.dumps({'type': 'log', 'message': 'Downloading YouTube audio...'})}\n\n"
+                yield f"data: {json.dumps({'type': 'progress', 'percentage': 10, 'message': 'Downloading audio...'})}\n\n"
+
+                # Create temp directory
+                temp_dir = tempfile.mkdtemp()
+                audio_path = os.path.join(temp_dir, 'audio.mp3')
+
+                # Download YouTube audio using yt-dlp
+                ydl_opts = {
+                    'format': 'bestaudio/best',
+                    'postprocessors': [{
+                        'key': 'FFmpegExtractAudio',
+                        'preferredcodec': 'mp3',
+                        'preferredquality': '192',
+                    }],
+                    'outtmpl': os.path.join(temp_dir, 'audio.%(ext)s'),
+                    'quiet': True,
+                    'no_warnings': True
+                }
+
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.download([youtube_url])
+
+                yield f"data: {json.dumps({'type': 'log', 'message': '✓ Audio downloaded successfully'})}\n\n"
+                yield f"data: {json.dumps({'type': 'progress', 'percentage': 40, 'message': 'Transcribing audio...'})}\n\n"
+
+                # Initialize Whisper model
+                model = WhisperModel("base", device="cpu", compute_type="int8")
+
+                # Transcribe audio
+                segments, info = model.transcribe(
+                    audio_path,
+                    language=source_language,
+                    task="translate"  # This translates to English
+                )
+
+                yield f"data: {json.dumps({'type': 'log', 'message': f'✓ Detected language: {info.language}'})}\n\n"
+                yield f"data: {json.dumps({'type': 'progress', 'percentage': 70, 'message': 'Processing transcript...'})}\n\n"
+
+                # Collect all segments into clean paragraphs
+                transcript_text = ""
+                for segment in segments:
+                    transcript_text += segment.text.strip() + " "
+
+                # Clean up the transcript
+                transcript_text = transcript_text.strip()
+                transcript_text = " ".join(transcript_text.split())  # Remove extra whitespace
+
+                yield f"data: {json.dumps({'type': 'log', 'message': '✓ Transcript generated successfully'})}\n\n"
+                yield f"data: {json.dumps({'type': 'progress', 'percentage': 100, 'message': 'Complete!'})}\n\n"
+
+                # Clean up temp files
+                shutil.rmtree(temp_dir)
+
+                yield f"data: {json.dumps({'type': 'complete', 'transcript': transcript_text})}\n\n"
+
+            except Exception as e:
+                import traceback
+                error_msg = f"Error: {str(e)}\n{traceback.format_exc()}"
+                yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+
+        return Response(generate(), mimetype='text/event-stream')
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     print("=" * 80)
     print("VIDEO MAKER - Web Server")
