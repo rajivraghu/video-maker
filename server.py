@@ -673,6 +673,9 @@ def transcribe_youtube():
                 temp_dir = tempfile.mkdtemp()
                 audio_path = os.path.join(temp_dir, 'audio.mp3')
 
+                # Check if cookies file exists for YouTube authentication
+                cookies_path = os.path.expanduser('~/.config/yt-dlp/cookies.txt')
+
                 # Download YouTube audio using yt-dlp with enhanced configuration
                 ydl_opts = {
                     'format': 'bestaudio[ext=m4a]/bestaudio/best',
@@ -695,11 +698,16 @@ def transcribe_youtube():
                     'skip_unavailable_fragments': True,
                     'extractor_args': {
                         'youtube': {
-                            'player_client': ['web'],
+                            'player_client': ['web', 'android'],
                             'player_skip': ['js', 'configs']
                         }
                     }
                 }
+
+                # Use cookies if available (helps bypass YouTube blocks)
+                if os.path.exists(cookies_path):
+                    ydl_opts['cookiefile'] = cookies_path
+                    yield f"data: {json.dumps({'type': 'log', 'message': 'Using YouTube session cookies'})}\n\n"
 
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
