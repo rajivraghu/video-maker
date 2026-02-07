@@ -644,10 +644,11 @@ def regional_mix():
                         else:
                             vf_filter = f'{zoom_filter},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                        # Add captions if enabled
+                        # Add captions if enabled (using subtitles filter for better compatibility)
                         if ass_file and os.path.exists(ass_file):
-                            ass_path_escaped = escape_ffmpeg_path(ass_file)
-                            vf_filter = f"{vf_filter},ass={ass_path_escaped}"
+                            # Use subtitles filter with escaped path
+                            ass_path_for_filter = str(ass_file).replace("'", "\\'")
+                            vf_filter = f"{vf_filter},subtitles={ass_path_for_filter}"
 
                         # Use zoompan to create the clip
                         ffmpeg_cmd = [
