@@ -1446,7 +1446,7 @@ def split_audio():
                         continue
 
                     cut_start, cut_end = sp
-                    output_filename = f'cue_{i+1:03d}{audio_ext}'
+                    output_filename = f'{i+1}{audio_ext}'
                     output_path = os.path.join(out_dir, output_filename)
 
                     ffmpeg_cmd = [
