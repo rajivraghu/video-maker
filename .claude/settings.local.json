@@ -27,7 +27,9 @@
       "Bash(tree:*)",
       "Bash(pip install:*)",
       "Bash(pip3 install:*)",
-      "Bash(node -c:*)"
+      "Bash(node -c:*)",
+      "Bash(pip show:*)",
+      "Bash(pip3 show:*)"
     ]
   }
 }

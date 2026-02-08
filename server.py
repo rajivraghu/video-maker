@@ -20,6 +20,10 @@ CORS(app)
 # Get project root
 PROJECT_ROOT = Path(__file__).parent
 
+# FFmpeg path - use ffmpeg-full if available (has libass support for captions)
+FFMPEG_FULL_PATH = "/opt/homebrew/opt/ffmpeg-full/bin/ffmpeg"
+FFMPEG_PATH = FFMPEG_FULL_PATH if Path(FFMPEG_FULL_PATH).exists() else "ffmpeg"
+
 @app.route('/')
 def index():
     """Serve the main HTML page"""
@@ -292,15 +296,15 @@ def generate_ass_captions(words, output_path, video_width=1920, video_height=108
     """Generate ASS subtitle file with karaoke-style word highlighting (ALL CAPS, bold yellow)"""
 
     # Font and style settings
-    FONT_NAME = "Poppins"
-    FONT_SIZE = 48
-    FONT_COLOR = "&H00FFFFFF"        # White
+    FONT_NAME = "Arial"
+    FONT_SIZE = 52
+    FONT_COLOR = "&H00FFFFFF"        # White (BGR format)
     OUTLINE_COLOR = "&H00000000"     # Black outline
-    OUTLINE_WIDTH = 4                # Thicker for bold caps
+    OUTLINE_WIDTH = 4
     SHADOW_DEPTH = 2
     MARGIN_BOTTOM = 60
-    CAPTION_ALIGNMENT = 2
-    WORDS_PER_LINE = 6
+    CAPTION_ALIGNMENT = 2            # Bottom center
+    WORDS_PER_LINE = 5
 
     # Create ASS header with bold styling
     ass_content = f"""[Script Info]
@@ -331,13 +335,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             start_time = format_ass_time(current_word['start'])
             end_time = format_ass_time(current_word['end'])
 
-            # Build caption with current word highlighted in yellow
+            # Build caption with current word highlighted in light yellow
             caption_parts = []
             for j, w in enumerate(chunk):
                 word_text = w['word']
                 if j == word_idx:
-                    # Current word - yellow highlight
-                    caption_parts.append(f"{{\\c&H00FFFF&}}{word_text}{{\\c&HFFFFFF&}}")
+                    # Current word - light/bright yellow (BGR: 80FFFF = light yellow)
+                    caption_parts.append(f"{{\\c&H80FFFF&}}{word_text}{{\\c&HFFFFFF&}}")
                 else:
                     # Other words - white
                     caption_parts.append(word_text)
@@ -349,19 +353,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     with open(output_path, 'w', encoding='utf-8') as f:
         f.write(ass_content)
 
-
-def escape_ffmpeg_path(path):
-    """Escape path for FFmpeg filters - properly escape special characters"""
-    # Convert to string and normalize path separators
-    path_str = str(path).replace('\\', '/')
-    # For FFmpeg filter syntax, escape special characters
-    # Escape backslashes first
-    path_str = path_str.replace('\\', '\\\\')
-    # Escape single quotes
-    path_str = path_str.replace("'", "\\'")
-    # Escape colons (important for filter syntax)
-    path_str = path_str.replace(':', '\\:')
-    return path_str
+    return output_path
 
 
 @app.route('/api/regional-mix', methods=['POST'])
@@ -548,14 +540,8 @@ def regional_mix():
                             else:
                                 vf_filter = f'{vf_base},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                            # Add captions if enabled (using subtitles filter instead of ass for better compatibility)
-                            if ass_file and os.path.exists(ass_file):
-                                # Use subtitles filter with escaped path
-                                ass_path_for_filter = str(ass_file).replace("'", "\\'")
-                                vf_filter = f"{vf_filter},subtitles={ass_path_for_filter}"
-
                             ffmpeg_cmd = [
-                                'ffmpeg', '-y',
+                                FFMPEG_PATH, '-y',
                                 '-i', media_path,
                                 '-i', aud_path,
                                 '-map', '0:v',  # Take video from first input
@@ -587,14 +573,8 @@ def regional_mix():
                                 # With fade effects
                                 vf_filter = f'{vf_base},tpad=stop_mode=clone:stop_duration={freeze_duration},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                            # Add captions if enabled (using subtitles filter instead of ass for better compatibility)
-                            if ass_file and os.path.exists(ass_file):
-                                # Use subtitles filter with escaped path
-                                ass_path_for_filter = str(ass_file).replace("'", "\\'")
-                                vf_filter = f"{vf_filter},subtitles={ass_path_for_filter}"
-
                             ffmpeg_cmd = [
-                                'ffmpeg', '-y',
+                                FFMPEG_PATH, '-y',
                                 '-i', media_path,
                                 '-i', aud_path,
                                 '-map', '0:v',
@@ -644,15 +624,9 @@ def regional_mix():
                         else:
                             vf_filter = f'{zoom_filter},fade=t=in:st=0:d={fade_duration},fade=t=out:st={audio_duration-fade_duration}:d={fade_duration}'
 
-                        # Add captions if enabled (using subtitles filter for better compatibility)
-                        if ass_file and os.path.exists(ass_file):
-                            # Use subtitles filter with escaped path
-                            ass_path_for_filter = str(ass_file).replace("'", "\\'")
-                            vf_filter = f"{vf_filter},subtitles={ass_path_for_filter}"
-
                         # Use zoompan to create the clip
                         ffmpeg_cmd = [
-                            'ffmpeg', '-y',
+                            FFMPEG_PATH, '-y',
                             '-i', media_path,
                             '-i', aud_path,
                             '-map', '0:v',
@@ -674,6 +648,40 @@ def regional_mix():
                         yield f"data: {json.dumps({'type': 'log', 'message': f'  FFmpeg error: {process.stderr}', 'level': 'error'})}\n\n"
                         yield f"data: {json.dumps({'type': 'error', 'message': f'Failed to create clip for pair {num}'})}\n\n"
                         return
+
+                    # Add captions in second pass if ASS file exists
+                    if ass_file and os.path.exists(ass_file) and os.path.exists(clip_path):
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'  Burning captions into clip...'})}\n\n"
+
+                        clip_with_subs = str(clip_dir / f'clip_{num}_subs.mp4')
+
+                        # Escape the ASS path for FFmpeg filter (colons need escaping)
+                        ass_path_escaped = ass_file.replace(':', '\\:')
+
+                        subtitle_cmd = [
+                            FFMPEG_PATH, '-y',
+                            '-i', clip_path,
+                            '-vf', f'ass={ass_path_escaped}',
+                            '-c:v', 'libx264',
+                            '-preset', 'medium',
+                            '-crf', '18',
+                            '-c:a', 'copy',
+                            clip_with_subs
+                        ]
+
+                        sub_process = subprocess.run(subtitle_cmd, capture_output=True, text=True)
+
+                        if sub_process.returncode == 0:
+                            # Replace original clip with captioned version
+                            os.remove(clip_path)
+                            os.rename(clip_with_subs, clip_path)
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  ✓ Captions burned successfully'})}\n\n"
+                        else:
+                            # Log error but continue without captions
+                            stderr_lines = sub_process.stderr.split('\n')
+                            error_lines = [l for l in stderr_lines if 'error' in l.lower() or 'failed' in l.lower()]
+                            error_msg = '; '.join(error_lines[-3:]) if error_lines else 'Unknown error'
+                            yield f"data: {json.dumps({'type': 'log', 'message': f'  ⚠ Could not burn captions: {error_msg}'})}\n\n"
 
                     # Verify clip was created and get its duration
                     if os.path.exists(clip_path):
@@ -743,7 +751,7 @@ def regional_mix():
                 # All clips now have identical params: fps=30, 1920x1080, libx264, yuv420p
                 final_video = output_dir / 'final_video.mp4'
                 concat_cmd = [
-                    'ffmpeg', '-y',
+                    FFMPEG_PATH, '-y',
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', str(concat_file),
@@ -852,7 +860,7 @@ def transcribe_youtube():
                     yield f"data: {json.dumps({'type': 'log', 'message': 'Converting to MP3...'})}\n\n"
 
                     ffmpeg_cmd = [
-                        'ffmpeg', '-y',
+                        FFMPEG_PATH, '-y',
                         '-i', downloaded_file,
                         '-q:a', '5',
                         '-map', 'a',
