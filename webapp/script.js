@@ -35,6 +35,16 @@ const transcribeState = {
     isProcessing: false
 };
 
+// Split Audio State
+const saState = {
+    audioFile: null,
+    cuesFile: null,
+    cueLines: [],
+    isProcessing: false,
+    matchResults: [],
+    zipUrl: null
+};
+
 // Helper to check if file is video
 function isVideoFile(file) {
     const videoExtensions = ['.mp4', '.mov', '.avi', '.webm', '.mkv'];
@@ -814,29 +824,31 @@ function switchPage(page) {
         btn.classList.toggle('active', btn.dataset.page === page);
     });
 
-    // Show/hide sections based on page
+    // Hide all sections first
+    uploadSection.style.display = 'none';
+    sceneConfigSection.style.display = 'none';
+    outputSection.style.display = 'none';
+    regionalMixSection.style.display = 'none';
+    rmOutputSection.style.display = 'none';
+    document.getElementById('transcribeSection').style.display = 'none';
+    document.getElementById('transcribeOutputSection').style.display = 'none';
+    document.getElementById('splitAudioSection').style.display = 'none';
+    document.getElementById('saOutputSection').style.display = 'none';
+
+    // Show sections for selected page
     if (page === 'video-maker') {
         uploadSection.style.display = 'block';
         sceneConfigSection.style.display = state.scenes.length > 0 ? 'block' : 'none';
         outputSection.style.display = state.isProcessing || elements.resultContainer.style.display === 'block' ? 'block' : 'none';
-        regionalMixSection.style.display = 'none';
-        rmOutputSection.style.display = 'none';
     } else if (page === 'regional-mix') {
-        uploadSection.style.display = 'none';
-        sceneConfigSection.style.display = 'none';
-        outputSection.style.display = 'none';
         regionalMixSection.style.display = 'block';
         rmOutputSection.style.display = rmState.isProcessing || document.getElementById('rmResultContainer').style.display === 'block' ? 'block' : 'none';
-        document.getElementById('transcribeSection').style.display = 'none';
-        document.getElementById('transcribeOutputSection').style.display = 'none';
     } else if (page === 'transcribe') {
-        uploadSection.style.display = 'none';
-        sceneConfigSection.style.display = 'none';
-        outputSection.style.display = 'none';
-        regionalMixSection.style.display = 'none';
-        rmOutputSection.style.display = 'none';
         document.getElementById('transcribeSection').style.display = 'block';
         document.getElementById('transcribeOutputSection').style.display = transcribeState.isProcessing ? 'block' : 'none';
+    } else if (page === 'split-audio') {
+        document.getElementById('splitAudioSection').style.display = 'block';
+        document.getElementById('saOutputSection').style.display = saState.isProcessing || (document.getElementById('saResultsContainer') && document.getElementById('saResultsContainer').style.display === 'block') ? 'block' : 'none';
     }
 }
 
@@ -1473,6 +1485,291 @@ transcribeElements.downloadTranscriptBtn.addEventListener('click', () => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 });
+
+// ============================================
+// Split Audio - DOM Elements
+// ============================================
+const saElements = {
+    audioFile: document.getElementById('saAudioFile'),
+    cuesFile: document.getElementById('saCuesFile'),
+    audioStatus: document.getElementById('saAudioStatus'),
+    cuesStatus: document.getElementById('saCuesStatus'),
+    cuesPreview: document.getElementById('saCuesPreview'),
+    cuesList: document.getElementById('saCuesList'),
+    clearBtn: document.getElementById('saClearBtn'),
+    splitBtn: document.getElementById('saSplitBtn'),
+    outputSection: document.getElementById('saOutputSection'),
+    progressFill: document.getElementById('saProgressFill'),
+    progressText: document.getElementById('saProgressText'),
+    logsContent: document.getElementById('saLogsContent'),
+    clearLogsBtn: document.getElementById('saClearLogsBtn'),
+    resultsContainer: document.getElementById('saResultsContainer'),
+    resultsBody: document.getElementById('saResultsBody'),
+    stats: document.getElementById('saStats'),
+    downloadZip: document.getElementById('saDownloadZip')
+};
+
+// ============================================
+// Split Audio - Helpers
+// ============================================
+function saAddLog(message, type = 'info') {
+    const logLine = document.createElement('div');
+    logLine.className = `log-line ${type}`;
+    logLine.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+    saElements.logsContent.appendChild(logLine);
+    saElements.logsContent.scrollTop = saElements.logsContent.scrollHeight;
+}
+
+function saUpdateProgress(percentage, message) {
+    saElements.progressFill.style.width = `${percentage}%`;
+    saElements.progressText.textContent = message;
+}
+
+function saClearLogs() {
+    saElements.logsContent.innerHTML = '<div class="log-line">Ready to process...</div>';
+}
+
+function saEscapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function saGetAudioExt() {
+    if (!saState.audioFile) return '.mp3';
+    const name = saState.audioFile.name;
+    const dotIdx = name.lastIndexOf('.');
+    return dotIdx >= 0 ? name.substring(dotIdx) : '.mp3';
+}
+
+function checkSAFormValidity() {
+    const isValid = saState.audioFile && saState.cuesFile;
+    saElements.splitBtn.disabled = !isValid || saState.isProcessing;
+}
+
+// ============================================
+// Split Audio - Cues Preview
+// ============================================
+function renderCuesPreview() {
+    if (saState.cueLines.length === 0) {
+        saElements.cuesPreview.style.display = 'none';
+        return;
+    }
+    saElements.cuesPreview.style.display = 'block';
+    saElements.cuesList.innerHTML = saState.cueLines.map((line, i) =>
+        `<div class="sa-cue-item">
+            <span class="sa-cue-number">${i + 1}</span>
+            <span class="sa-cue-text">${saEscapeHtml(line)}</span>
+        </div>`
+    ).join('');
+}
+
+// ============================================
+// Split Audio - File Uploads
+// ============================================
+saElements.audioFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        saState.audioFile = file;
+        saElements.audioStatus.textContent = file.name;
+        saElements.audioStatus.className = 'file-status success';
+        checkSAFormValidity();
+    }
+});
+
+saElements.cuesFile.addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        saState.cuesFile = file;
+        saElements.cuesStatus.textContent = file.name;
+        saElements.cuesStatus.className = 'file-status success';
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            const content = evt.target.result;
+            saState.cueLines = content.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0);
+            renderCuesPreview();
+        };
+        reader.readAsText(file);
+
+        checkSAFormValidity();
+    }
+});
+
+// ============================================
+// Split Audio - Results Rendering
+// ============================================
+function renderSAResults(matchResults, stats, zipUrl) {
+    saElements.resultsContainer.style.display = 'block';
+
+    // Stats
+    saElements.stats.innerHTML = `
+        <span class="sa-stat matched">${stats.matched}/${stats.total} matched</span>
+        ${stats.partial > 0 ? `<span class="sa-stat partial">${stats.partial} partial</span>` : ''}
+        ${stats.failed > 0 ? `<span class="sa-stat failed">${stats.failed} failed</span>` : ''}
+        <span class="sa-stat split">${stats.valid_splits} files created</span>
+    `;
+
+    // Table body
+    saElements.resultsBody.innerHTML = matchResults.map((m, i) => {
+        const duration = m.status !== 'failed' ? (m.end - m.start).toFixed(2) : '--';
+        const startStr = m.status !== 'failed' ? m.start.toFixed(2) : '--';
+        const endStr = m.status !== 'failed' ? m.end.toFixed(2) : '--';
+        const filename = m.filename;
+
+        return `<tr class="sa-row-${m.status}">
+            <td>${i + 1}</td>
+            <td class="sa-cell-cue" title="${saEscapeHtml(m.cue_text)}">${saEscapeHtml(m.cue_text)}</td>
+            <td class="sa-cell-matched" title="${saEscapeHtml(m.matched_text || '')}">${saEscapeHtml(m.matched_text || '--')}</td>
+            <td>${startStr}s</td>
+            <td>${endStr}s</td>
+            <td>${duration}s</td>
+            <td><span class="sa-badge sa-badge-${m.status}">${m.status}</span></td>
+            <td>
+                ${filename ? `
+                    <a href="/api/download-split-file/${filename}"
+                       class="sa-action-btn" title="Download ${filename}">
+                        <svg viewBox="0 0 24 24" fill="none" width="16" height="16">
+                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </a>
+                ` : '--'}
+            </td>
+        </tr>`;
+    }).join('');
+
+    // ZIP download
+    saElements.downloadZip.href = zipUrl;
+    saElements.resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================
+// Split Audio - SSE Handler
+// ============================================
+function handleSAServerMessage(data) {
+    switch (data.type) {
+        case 'log':
+            saAddLog(data.message, data.level || 'info');
+            break;
+        case 'progress':
+            saUpdateProgress(data.percentage, data.message);
+            break;
+        case 'complete':
+            saAddLog('Audio splitting completed!', 'success');
+            saUpdateProgress(100, 'Complete!');
+            saState.matchResults = data.matchResults;
+            saState.zipUrl = data.zipUrl;
+            renderSAResults(data.matchResults, data.stats, data.zipUrl);
+            saState.isProcessing = false;
+            saElements.splitBtn.disabled = false;
+            break;
+        case 'error':
+            saAddLog(`Error: ${data.message}`, 'error');
+            saUpdateProgress(0, 'Failed');
+            saState.isProcessing = false;
+            saElements.splitBtn.disabled = false;
+            break;
+    }
+}
+
+// ============================================
+// Split Audio - Main Action
+// ============================================
+saElements.splitBtn.addEventListener('click', async () => {
+    if (saState.isProcessing) return;
+
+    saState.isProcessing = true;
+    saElements.splitBtn.disabled = true;
+    saElements.outputSection.style.display = 'block';
+    saElements.resultsContainer.style.display = 'none';
+
+    saElements.outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    saClearLogs();
+    saAddLog('Starting audio split process...', 'info');
+    saUpdateProgress(5, 'Preparing files...');
+
+    try {
+        const formData = new FormData();
+        formData.append('audio', saState.audioFile);
+        formData.append('cues', saState.cuesFile);
+
+        const response = await fetch('/api/split-audio', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+                        handleSAServerMessage(data);
+                    } catch (e) {
+                        console.error('Error parsing SSE data:', e);
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        saAddLog(`Error: ${error.message}`, 'error');
+        saUpdateProgress(0, 'Failed');
+        saState.isProcessing = false;
+        saElements.splitBtn.disabled = false;
+    }
+});
+
+// ============================================
+// Split Audio - Clear
+// ============================================
+saElements.clearBtn.addEventListener('click', () => {
+    if (saState.isProcessing) {
+        if (!confirm('Processing is in progress. Are you sure you want to clear?')) {
+            return;
+        }
+    }
+
+    saState.audioFile = null;
+    saState.cuesFile = null;
+    saState.cueLines = [];
+    saState.matchResults = [];
+    saState.zipUrl = null;
+    saState.isProcessing = false;
+
+    saElements.audioFile.value = '';
+    saElements.cuesFile.value = '';
+    saElements.audioStatus.textContent = '';
+    saElements.audioStatus.className = 'file-status';
+    saElements.cuesStatus.textContent = '';
+    saElements.cuesStatus.className = 'file-status';
+    saElements.cuesPreview.style.display = 'none';
+    saElements.outputSection.style.display = 'none';
+    saElements.resultsContainer.style.display = 'none';
+
+    saUpdateProgress(0, 'Ready');
+    saClearLogs();
+    checkSAFormValidity();
+});
+
+saElements.clearLogsBtn.addEventListener('click', saClearLogs);
 
 // ============================================
 // Initialize
