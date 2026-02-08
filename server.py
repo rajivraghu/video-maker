@@ -1386,21 +1386,74 @@ def split_audio():
                 yield f"data: {json.dumps({'type': 'log', 'message': f'Match summary: {perfect_count} matched, {partial_count} partial, {failed_count} failed out of {cue_count}'})}\n\n"
                 yield f"data: {json.dumps({'type': 'progress', 'percentage': 60, 'message': 'Splitting audio files...'})}\n\n"
 
-                # Step 3: Split audio with FFmpeg
-                split_files = []
+                # Step 3: Get total audio duration for boundary calculation
+                duration_cmd = [
+                    'ffprobe', '-v', 'error',
+                    '-show_entries', 'format=duration',
+                    '-of', 'default=noprint_wrappers=1:nokey=1',
+                    audio_path_str
+                ]
+                duration_result = subprocess.run(duration_cmd, capture_output=True, text=True)
+                total_audio_duration = float(duration_result.stdout.strip()) if duration_result.returncode == 0 else 0
+
+                if total_audio_duration == 0 and words:
+                    total_audio_duration = words[-1]['end'] + 0.5
+
+                yield f"data: {json.dumps({'type': 'log', 'message': f'Total audio duration: {total_audio_duration:.2f}s'})}\n\n"
+
+                # Step 4: Compute smooth split points using midpoints between cues
+                # Instead of cutting exactly at word boundaries (which chops audio),
+                # cut at the midpoint of silence BETWEEN consecutive cues.
+                # First cue starts at 0, last cue ends at audio duration.
+                split_points = []  # (start, end) for each cue
                 for i, m in enumerate(matches):
                     if m['status'] == 'failed':
+                        split_points.append(None)
+                        continue
+
+                    # Start: midpoint between previous cue's end and this cue's start
+                    if i == 0:
+                        cut_start = 0.0
+                    else:
+                        prev = matches[i - 1]
+                        if prev['status'] != 'failed' and prev['end'] > 0:
+                            # Midpoint of the gap between previous cue end and this cue start
+                            gap_start = prev['end']
+                            gap_end = m['start']
+                            cut_start = (gap_start + gap_end) / 2.0
+                        else:
+                            cut_start = max(0, m['start'] - 0.15)
+
+                    # End: midpoint between this cue's end and next cue's start
+                    if i == len(matches) - 1:
+                        cut_end = total_audio_duration
+                    else:
+                        nxt = matches[i + 1]
+                        if nxt['status'] != 'failed' and nxt['start'] > 0:
+                            gap_start = m['end']
+                            gap_end = nxt['start']
+                            cut_end = (gap_start + gap_end) / 2.0
+                        else:
+                            cut_end = m['end'] + 0.15
+
+                    split_points.append((cut_start, cut_end))
+
+                # Step 5: Split audio with FFmpeg using smooth boundaries
+                split_files = []
+                for i, sp in enumerate(split_points):
+                    if sp is None:
                         split_files.append(None)
                         continue
 
+                    cut_start, cut_end = sp
                     output_filename = f'cue_{i+1:03d}{audio_ext}'
                     output_path = os.path.join(out_dir, output_filename)
 
                     ffmpeg_cmd = [
                         FFMPEG_PATH, '-y',
                         '-i', audio_path_str,
-                        '-ss', str(m['start']),
-                        '-to', str(m['end']),
+                        '-ss', str(cut_start),
+                        '-to', str(cut_end),
                         '-c', 'copy',
                         output_path
                     ]
@@ -1412,8 +1465,8 @@ def split_audio():
                         split_files.append(None)
                     else:
                         split_files.append(output_filename)
-                        duration = m['end'] - m['start']
-                        yield f"data: {json.dumps({'type': 'log', 'message': f'Split cue {i+1}: {output_filename} ({duration:.2f}s)'})}\n\n"
+                        duration = cut_end - cut_start
+                        yield f"data: {json.dumps({'type': 'log', 'message': f'Split cue {i+1}: {output_filename} ({duration:.2f}s) [{cut_start:.2f}s - {cut_end:.2f}s]'})}\n\n"
 
                     progress = 60 + int(((i + 1) / cue_count) * 30)
                     yield f"data: {json.dumps({'type': 'progress', 'percentage': progress, 'message': f'Splitting audio {i+1}/{cue_count}...'})}\n\n"
@@ -1435,16 +1488,23 @@ def split_audio():
                 yield f"data: {json.dumps({'type': 'log', 'message': f'ZIP created with {valid_count} audio files'})}\n\n"
                 yield f"data: {json.dumps({'type': 'progress', 'percentage': 100, 'message': 'Complete!'})}\n\n"
 
-                # Build match results for frontend
+                # Build match results for frontend (show actual cut points, not word boundaries)
                 match_results = []
                 for i, m in enumerate(matches):
+                    sp = split_points[i]
+                    if sp:
+                        actual_start = round(sp[0], 3)
+                        actual_end = round(sp[1], 3)
+                    else:
+                        actual_start = round(m['start'], 3)
+                        actual_end = round(m['end'], 3)
                     match_results.append({
                         'cue_index': i,
                         'cue_text': m['cue_text'],
                         'status': m['status'],
                         'matched_text': m['matched_text'],
-                        'start': round(m['start'], 3),
-                        'end': round(m['end'], 3),
+                        'start': actual_start,
+                        'end': actual_end,
                         'score': m['score'],
                         'filename': split_files[i]
                     })
